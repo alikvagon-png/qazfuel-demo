@@ -41,3 +41,6 @@ DROP TRIGGER IF EXISTS qf_customer_status ON qf_order_events;
 CREATE TRIGGER qf_customer_status AFTER INSERT ON qf_order_events FOR EACH ROW EXECUTE FUNCTION qf_enqueue_customer_status();
 CREATE TABLE IF NOT EXISTS qf_operations_install(singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),installed_at timestamptz NOT NULL DEFAULT now());
 INSERT INTO qf_operations_install(singleton) VALUES(true) ON CONFLICT DO NOTHING;
+CREATE TABLE IF NOT EXISTS qf_rosstat_quotes(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,report_date text NOT NULL CHECK(report_date ~ '^20[0-9]{2}-[0-9]{2}-[0-9]{2}$'),publication_url text NOT NULL,document_hash text NOT NULL,prices jsonb NOT NULL,imported_at timestamptz NOT NULL DEFAULT now(),import_method text NOT NULL CHECK(import_method IN ('automatic','admin_file','admin_url')),UNIQUE(report_date,document_hash));
+CREATE TABLE IF NOT EXISTS qf_rosstat_state(singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),last_attempt timestamptz,last_success timestamptz,last_error text,next_attempt timestamptz,lease_until timestamptz);
+INSERT INTO qf_rosstat_state(singleton) VALUES(true) ON CONFLICT DO NOTHING;

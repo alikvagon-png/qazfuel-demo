@@ -49,3 +49,5 @@ body[data-screen=delivery] #delivery input:not([type=range]),body[data-screen=de
 .status-completed{color:#88d8b0;background:rgba(69,158,112,.12)}
 .closure-note{color:#e8bd76}
 button:disabled{cursor:not-allowed;opacity:.5}
+
+.quote-note{display:grid;gap:7px;margin:12px 0;font-size:13px;line-height:1.55}.quote-note strong{font-size:23px;color:var(--gold,#d9b870)}.quote-note small,.point-price>small{display:block;font-size:11px;line-height:1.5;color:#acb8c9}.quote-note a{font-size:11px;color:#d9b870;overflow-wrap:anywhere}.quote-stale{border-left:2px solid #e3ac64;padding-left:10px}.point-price{grid-column:1/-1;margin-top:8px}.order-summary{flex-wrap:wrap}.order-summary>.quote-note{width:100%;flex-basis:100%}#homePriceCards{margin-top:24px}#homePriceCards .price-card{min-width:0}#homePriceCards .quote-note strong{font-size:19px}#rosstatAdmin input{max-width:100%}

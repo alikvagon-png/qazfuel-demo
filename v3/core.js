@@ -62,8 +62,8 @@
   function priceFromMarket(quote,now=Date.now()){
     if(!quote||!['АИ-95','АИ-98','ДТ'].includes(quote.fuel)||quote.currency!=='RUB'||quote.unit!=='liter'||typeof quote.region!=='string'||!quote.region.trim()||typeof quote.source!=='string'||!quote.source.trim())throw Error('Нет подтверждённой региональной котировки API');
     const m=quote.marketPrice,t=Date.parse(quote.observedAt);
-    if(!Number.isFinite(m)||m<=LAUNCH_DISCOUNT_RUB||m>999||!Number.isFinite(t)||t>now+60000||now-t>TTL)throw Error('Рыночная цена API недоступна или устарела');
-    return {...quote,marketPrice:Math.round(m*100)/100,discount:LAUNCH_DISCOUNT_RUB,price:(Math.round(m*100)-LAUNCH_DISCOUNT_RUB*100)/100};
+    if(!Number.isFinite(m)||m<=LAUNCH_DISCOUNT_RUB||m>999||!Number.isFinite(t)||t>now+60000||(quote.source!=='Росстат'&&now-t>TTL))throw Error('Рыночная цена API недоступна или устарела');
+    return {...quote,marketPrice:Math.round(m*100)/100,discount:LAUNCH_DISCOUNT_RUB,price:(Math.round(m*100)-LAUNCH_DISCOUNT_RUB*100)/100,unitPriceKopecks:Math.round(m*100)-LAUNCH_DISCOUNT_RUB*100};
   }
   function initialScreen(hash,query){const allowed=['home','points','orders','about','prices','booking','delivery'];const fragment=String(hash||'').replace(/^#/,'').split(/[?&]/)[0];if(allowed.includes(fragment))return fragment;const screen=new URLSearchParams(query||'').get('screen');return allowed.includes(screen)?screen:'home';}
   const api={initialScreen,TTL,points,routeUrl,status,expiration,remaining,phone,validateTruck,validateDelivery,validateOrder,LAUNCH_DISCOUNT_RUB,priceFromMarket};

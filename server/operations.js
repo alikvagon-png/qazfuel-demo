@@ -9,7 +9,7 @@ function extend(Store){
 }
 function buttons(rows){return {inline_keyboard:rows};}
 const b=(text,data)=>({text,callback_data:'ops:'+data});
-const home=()=>({text:'Управление QAZFUEL\n\nЗаявки, цены и доступность точек. Ручная рыночная котировка действует 24 часа, скидка всегда 3 ₽/л.',reply_markup:buttons([[b('🆕 Новые','list:pending:0'),b('✅ Подтверждённые','list:confirmed:0')],[b('🏁 Выполненные','list:completed:0'),b('Отменённые','list:cancelled:0')],[b('Отклонённые','list:rejected:0'),b('Истёкшие','list:expired:0')],[b('₽ Ручные цены','prices'),b('📍 Работа точек','points')]])});
+const home=()=>({text:'Управление QAZFUEL\n\nЗаявки, цены и доступность точек. Единый ориентир Росстата по Москве, скидка всегда 3 ₽/л.',reply_markup:buttons([[b('🆕 Новые','list:pending:0'),b('✅ Подтверждённые','list:confirmed:0')],[b('🏁 Выполненные','list:completed:0'),b('Отменённые','list:cancelled:0')],[b('Отклонённые','list:rejected:0'),b('Истёкшие','list:expired:0')],[b('₽ Росстат · цены','prices'),b('📍 Работа точек','points')]])});
 async function handle(tg,data,chat){
  if(/^(order|ask|change):/.test(data)&&!/[a-f\d]{8}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{12}$/i.test(data))throw new HttpError(422,'Некорректный номер заявки');
  const send=v=>tg.call('sendMessage',{chat_id:chat,...v});const parts=data.split(':');
@@ -31,11 +31,9 @@ async function handle(tg,data,chat){
  }
  if(parts[0]==='point'&&C.points.some(p=>p.id===parts[1])&&['open','close'].includes(parts[2]))return send({text:(parts[2]==='close'?'Закрыть':'Открыть')+' точку '+C.points.find(p=>p.id===parts[1]).name+'?',reply_markup:buttons([[b('Подтвердить',`pointset:${parts[1]}:${parts[2]}`)],[b('Назад','points')]])});
  if(parts[0]==='pointset'&&C.points.some(p=>p.id===parts[1])&&['open','close'].includes(parts[2])){await tg.store.setting('point:'+parts[1],{closed:parts[2]==='close'});return handle(tg,'points',chat);}
- if(data==='prices'){
-  const settings=await tg.store.settings();const lines=settings.filter(s=>s.key.startsWith('price:')).map(s=>`${s.value.region} · ${s.value.fuel}: рынок ${s.value.marketPrice}, QAZFUEL ${(s.value.marketPrice-3).toFixed(2)} ₽/л · ${new Date(s.updated_at).toISOString()}`);
-  return send({text:'Ручные рыночные цены\n\n'+(lines.join('\n')||'Котировки не заданы.')+'\n\nКоманда:\n/price moscow 95 65.50\n/price moscow_oblast 98 80.00\n/price moscow dt 75.00\n\nУказывайте проверенную рыночную цену, не цену QAZFUEL. Вычтем 3 ₽/л. Действует 24 часа. Для удаления: /price moscow 95 off\n\nРучная настройка помечается как данные менеджера, не как API.',reply_markup:buttons([[b('Меню','home')]])});
- }
+ if(data==='prices')return send({text:'Цены только по Росстату · Москва\n\nФормула: средняя цена Москвы минус 3 ₽/л. Единый ориентир для всех точек и доставки. Недельная статистика, окончательные условия подтверждает менеджер.\n\nПри недоступности автоматического импорта откройте раздел «Цены» в приложении с аккаунта менеджера и загрузите оригинальный HTML-файл официальной публикации. Ввод произвольных цен отключён.',reply_markup:buttons([[{text:'Цены и официальный импорт',web_app:{url:'https://qazfuel-v3-preview.onrender.com/?screen=prices'}}],[b('Меню','home')]])});
+
  throw new HttpError(422,'Неизвестное действие менеджера');
 }
-async function priceCommand(tg,text){const m=/^\/price(?:@\w+)?\s+(moscow|moscow_oblast)\s+(95|98|dt)\s+(off|\d{1,3}(?:[.,]\d{1,2})?)$/i.exec(text.trim());if(!m)throw new HttpError(422,'Формат: /price moscow 95 65.50. Регион: moscow или moscow_oblast; топливо: 95, 98, dt; цена либо off.');const fuel={'95':'АИ-95','98':'АИ-98',dt:'ДТ'}[m[2].toLowerCase()],region=m[1].toLowerCase(),price=Number(m[3].replace(',','.'));if(m[3].toLowerCase()!=='off'&&(!Number.isFinite(price)||price<=3||price>300))throw new HttpError(422,'Рыночная цена должна быть больше 3 и не выше 300 ₽/л');await tg.store.setting(`price:${region}:${fuel}`,m[3].toLowerCase()==='off'?{disabled:true}:{region,fuel,marketPrice:price});return 'Цена сохранена. '+(m[3].toLowerCase()==='off'?'Ручная котировка отключена.':`QAZFUEL: ${(price-3).toFixed(2)} ₽/л, действует 24 часа.`);}
+async function priceCommand(){throw new HttpError(422,'Ручной ввод произвольных цен отключён. Единственный источник — официальная таблица Росстата по Москве. Откройте /admin → цены.');}
 module.exports={extend,handle,home,priceCommand,labels};

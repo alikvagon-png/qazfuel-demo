@@ -9,7 +9,8 @@
     "live-smoke": "node live-smoke.cjs",
     "server-test-smoke": "node public-smoke.cjs",
     "bot-links": "node bot-links.e2e.cjs",
-    "operations": "node operations.e2e.cjs"
+    "operations": "node operations.e2e.cjs",
+    "rosstat": "node rosstat.e2e.cjs"
   },
   "devDependencies": {
     "playwright": "1.62.1"

@@ -1,36 +1,18 @@
 'use strict';
-const {C}=require('./security');
-const SOURCES={ehai:{name:'Ехай',url:'https://eh-ai.ru/assets/prices.json',docs:'https://eh-ai.ru/api/'},wherefuel:{name:'ГдеТопливо',url:'https://wherefuel.ru/api/stations?bbox=37.3,55.5,37.9,55.9',docs:'https://wherefuel.ru/for-business'}};
-const REGIONS={moscow:'Москва',moscow_oblast:'Московская область'};
-async function getJSON(url,fetcher=fetch){const r=await fetcher(url,{signal:AbortSignal.timeout(10000),headers:{Accept:'application/json','User-Agent':'QAZFUEL-V3-preview/0.2'}});if(!r.ok)throw Error('upstream_http_'+r.status);const raw=await r.text();if(raw.length>2000000)throw Error('upstream_too_large');return JSON.parse(raw);}
-function normalizeEhai(data,region,now=Date.now()){
- const name=REGIONS[region];const updated=Number.isFinite(data?.updated)?new Date(data.updated*1000).toISOString():null;
- const row=Array.isArray(data?.regions)?data.regions.find(x=>x?.name===name):null;
- const result=[];
- for(const [fuel,key] of [['АИ-95','ai95'],['ДТ','dt']]){
-  if(!row||!Number.isFinite(row.n)||row.n<3||!Number.isFinite(row[key]))continue;
-  try{result.push(C.priceFromMarket({fuel,marketPrice:row[key],region:name,currency:'RUB',unit:'liter',source:'Ехай',sourceUrl:SOURCES.ehai.docs,observedAt:updated},now));}catch{/* Missing or stale quotes are not prices. */}
- }
- return {quotes:result,sourceUpdatedAt:updated,reason:!row?'no_region':(!updated||now-Date.parse(updated)>C.TTL)?'stale':'partial_coverage'};
-}
+const R=require('./rosstat');
+const REGIONS={moscow:'Москва',moscow_oblast:'Москва'};
 class Prices{
- constructor(fetcher=fetch){this.fetcher=fetcher;this.cached=new Map();this.inflight=new Map();}
- async get(region='moscow'){
-  if(!REGIONS[region])throw Error('unknown_region');const old=this.cached.get(region);
-  if(old&&Date.now()-old.fetched<3600000){return this.recheck(old.data);}
-  if(this.inflight.has(region))return this.inflight.get(region);
-  const promise=this.load(region).then(data=>{this.cached.set(region,{fetched:Date.now(),data});return data;}).finally(()=>this.inflight.delete(region));this.inflight.set(region,promise);return promise;
- }
- recheck(data){const now=Date.now();return {...data,items:data.items.map(q=>q.available&&now-Date.parse(q.observedAt)>C.TTL?{fuel:q.fuel,available:false,reason:'stale',price:null,marketPrice:null}:q)};}
- async load(region){
-  const checkedAt=new Date().toISOString();const [eh,wf]=await Promise.allSettled([getJSON(SOURCES.ehai.url,this.fetcher),getJSON(SOURCES.wherefuel.url,this.fetcher)]);
-  const e=eh.status==='fulfilled'?normalizeEhai(eh.value,region):{quotes:[],sourceUpdatedAt:null,reason:'upstream_unavailable'};
-  const stations=wf.status==='fulfilled'&&Array.isArray(wf.value)?wf.value:[];
-  // The verified public station schema contains no fuel-price values/timestamps.
-  // Do not invent a schema, infer AI-98, or use a national quote for Moscow.
-  const sources=[{...SOURCES.ehai,reachable:eh.status==='fulfilled',sourceUpdatedAt:e.sourceUpdatedAt,reason:e.reason},{...SOURCES.wherefuel,reachable:wf.status==='fulfilled',stations:stations.length,sourceUpdatedAt:null,reason:stations.length?'no_verified_price_fields':'upstream_unavailable'}];
-  const items=['АИ-95','АИ-98','ДТ'].map(fuel=>{const q=e.quotes.find(q=>q.fuel===fuel);return q?{...q,available:true}:{fuel,price:null,marketPrice:null,available:false,reason:fuel==='АИ-98'?'no_reliable_ai98':e.reason};});
-  return {region:REGIONS[region],regionId:region,discount:3,currency:'RUB',unit:'liter',checkedAt,cacheSeconds:3600,items,sources,notice:items.some(x=>x.available)?'Региональные рыночные ориентиры; скидка 3 ₽/л':'Цена уточняется: проверенные источники не вернули актуальные региональные котировки'};
- }
+ constructor({store=null,fetcher=fetch}={}){this.store=store;this.fetcher=fetcher;this.busy=false;}
+ async refresh(force=false){if(!this.store||this.busy)return;this.busy=true;let claimed=false;try{
+ const claim=await this.store.pool.query("UPDATE qf_rosstat_state SET lease_until=now()+interval '5 minutes',last_attempt=now(),next_attempt=now()+interval '1 hour' WHERE singleton=true AND (lease_until IS NULL OR lease_until<now()) AND ($1::boolean OR next_attempt IS NULL OR next_attempt<=now()) RETURNING singleton",[force]);if(!claim.rowCount)return;claimed=true;
+ let urls,catalogError=false;try{const index=await R.fetchHTML(R.INDEX,this.fetcher);urls=R.discover(index);if(!urls.length)throw Error('rosstat_no_publications_found');}catch{catalogError=true;const prior=await R.latest(this.store.pool);urls=[prior?.publication_url||'https://rosstat.gov.ru/storage/mediabank/169_28-10-2026.html'];console.error('rosstat_catalog_unavailable');}let newest=null,lastError;for(const url of urls){try{const data=R.parsePublication(await R.fetchHTML(url,this.fetcher),url);if(!newest||data.reportDate>newest.reportDate)newest=data;}catch(e){lastError=e;}if(newest)break;}
+ if(!newest)throw lastError||Error('rosstat_no_valid_publication');await R.save(this.store,newest,'automatic');await this.store.pool.query("UPDATE qf_rosstat_state SET next_attempt=now()+CASE WHEN $1::boolean THEN interval '1 hour' ELSE interval '6 hours' END,last_error=$2 WHERE singleton=true",[catalogError,catalogError?'rosstat_catalog_unavailable':null]);console.log('rosstat_import_success',{reportDate:newest.reportDate});
+ }catch(e){const code=/^rosstat_[a-z0-9_]+$/.test(e.message)?e.message:'rosstat_import_failed';console.error('rosstat_import_error',{code});if(claimed)await this.store.pool.query('UPDATE qf_rosstat_state SET last_error=$1 WHERE singleton=true',[code]).catch(()=>{});
+ }finally{if(claimed)await this.store.pool.query('UPDATE qf_rosstat_state SET lease_until=NULL WHERE singleton=true').catch(()=>{});this.busy=false;}}
+ async get(){if(this.store)void this.refresh().catch(()=>{});const row=this.store?await R.latest(this.store.pool):null;const state=this.store?(await this.store.pool.query('SELECT last_attempt,last_success,last_error,next_attempt FROM qf_rosstat_state WHERE singleton=true')).rows[0]:null;
+ const items=['АИ-95','АИ-98','ДТ'].map(fuel=>{const p=R.snapshot(row,{fuel,liters:1});return {fuel,available:p.available,marketPrice:p.available?p.marketPriceKopecks/100:null,price:p.available?p.unitPriceKopecks/100:null,marketPriceKopecks:p.marketPriceKopecks??null,unitPriceKopecks:p.unitPriceKopecks,discount:3,region:'Москва',currency:'RUB',unit:'liter',source:'Росстат',sourceUrl:p.sourceUrl,reportDate:p.reportDate,observedAt:p.reportDate?p.reportDate+'T00:00:00Z':null,version:R.VERSION,stale:!!p.stale,importMethod:p.importMethod||null};});
+ return {region:'Москва',regionId:'moscow',appliesTo:'Все 9 точек и доставка по Москве и Московской области',discount:3,currency:'RUB',unit:'liter',checkedAt:new Date().toISOString(),items,sources:[{name:'Росстат',url:row?.publication_url||R.INDEX,sourceUpdatedAt:row?String(row.report_date).slice(0,10):null,reachable:!!state?.last_success&&!state?.last_error}],import:state||null,cacheSeconds:21600,notice:row?'Средняя цена по данным Росстата за указанную дату. Итоговая стоимость подтверждается менеджером.':'Цена уточняется: официальная таблица Росстата ещё не импортирована.'};}
+ async importFile(html,url){const data=R.parsePublication(html,R.officialUrl(url));return R.save(this.store,data,'admin_file');}
+ async importUrl(url){url=R.officialUrl(url);const data=R.parsePublication(await R.fetchHTML(url,this.fetcher),url);return R.save(this.store,data,'admin_url');}
 }
-module.exports={Prices,normalizeEhai,SOURCES,REGIONS};
+module.exports={Prices,REGIONS};
