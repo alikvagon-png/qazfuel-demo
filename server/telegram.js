@@ -16,6 +16,15 @@ class Telegram{
    const code=m.text.slice('/start manager_'.length);if(!this.env.MANAGER_PAIRING_TOKEN||!safeEqual(hash(code),hash(this.env.MANAGER_PAIRING_TOKEN)))throw new HttpError(403,'Код привязки не принят');
    await this.store.pool.query('INSERT INTO qf_manager(singleton,telegram_id,chat_id) VALUES(true,$1,$2) ON CONFLICT(singleton) DO NOTHING',[m.from.id,m.chat.id]);await this.call('sendMessage',{chat_id:m.chat.id,text:'QAZFUEL: ID менеджера подтверждён. Этот чат привязан для заявок.'});return {ok:true};
   }
+  if(m?.chat?.type==='private'&&Number.isSafeInteger(m.from?.id)&&!m.from.is_bot){
+   const command=typeof m.text==='string'?m.text.split(/\s/)[0].split('@')[0]:'';
+   if(['/start','/app','/help'].includes(command)){
+    const live=this.env.ORDER_INTAKE_ENABLED==='true'&&await this.ready();
+    await this.call('sendMessage',{chat_id:m.chat.id,text:live?'QAZFUEL — дизель на трассе и доставка топлива по Москве и области. Откройте приложение и оформите заявку. После отправки ожидайте подтверждения менеджера. Срок брони на трассе — 24 часа с создания заявки.':'QAZFUEL V3 — тестовый запуск. Приложение сохраняет тестовые заявки; реальная бронь и отправка менеджеру пока не включены.',reply_markup:{inline_keyboard:[[{text:'Открыть QAZFUEL V3',web_app:{url:'https://qazfuel-v3-preview.onrender.com/'}}],[{text:'Связаться с менеджером',url:'https://t.me/qazfuel'}]]}});
+   }
+   return {ok:true};
+  }
+  if(!update.callback_query)return {ok:true};
   const q=update.callback_query,manager=await this.store.manager();
   if(!q||!manager||String(q.from?.id)!==String(manager.telegram_id)||String(q.message?.chat?.id)!==String(manager.chat_id))throw new HttpError(403,'Доступ менеджера не подтверждён');
   const match=/^(confirm|reject):([a-f\d-]{36})$/i.exec(q.data||'');if(!match)throw new HttpError(400,'Неизвестное действие');
