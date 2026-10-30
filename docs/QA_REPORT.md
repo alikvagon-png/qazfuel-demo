@@ -67,3 +67,11 @@ First Render deploy fd1ba39d070f540d305b86ce17636a461122def0 reached Live (dep-d
 Live inspection found Telegram's standalone-browser SDK version 6.0 warns when BackButton is used. BackButton hooks are now gated to SDK >=6.1; modern Telegram functionality is retained. Zoom controls moved to the bottom-left so the northwestern markers are not hidden under them. Full local WebKit regression after these changes: 16/16 cases, 206 assertions passed at 2026-10-30T07:04:09Z.
 
 Initial remote WebKit requests exceeded the old 8-second navigation timeout while curl and cloud Chromium loaded successfully. Test navigation budget is now 45 seconds (actions remain 8 seconds); this changes the test harness only. Final remote results are recorded in the completion report after the last deploy; no remote pass is inferred from a local pass.
+
+## Final published application result
+
+The complete WebKit suite against https://qazfuel-v3-preview.onrender.com passed on 30 October 2026 at 07:11:02 UTC (12:11:02 Almaty): **16/16 scenarios, 206 assertions, zero failures and zero uncaught application JavaScript errors**. Raw evidence: QA_LIVE_RESULTS.json. The application code under test was commit 03fa5118c369fde5072ec461ccda6e07e249233c, deployed Live as dep-dbi4390473hc73ekpfi0. Local pure business rules: 9/9 tests passed.
+
+In addition, cloud Chromium verified the real externally loaded SDK, map tiles, delivery validation, full-tank review, local test-order saving/history after reload, and an actual Yandex automotive route from Orenburg to Martuk. No real customer submission occurred. Physical iPhone/Telegram WebView testing remains a bounded limitation.
+
+Production service remained on 296ed4c660d686b70d390d20b028551bcc3186ce with its original deploy dep-dbi1bb61egvs73ek5800. Main, public/, production settings, and bot configuration were not changed. No paid resources were created.

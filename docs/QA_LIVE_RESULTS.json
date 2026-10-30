@@ -1,0 +1,90 @@
+{
+  "engine": "webkit",
+  "base": "https://qazfuel-v3-preview.onrender.com",
+  "ranAt": "2026-10-30T07:11:02.967Z",
+  "checks": 206,
+  "passed": 16,
+  "failed": 0,
+  "results": [
+    {
+      "name": "navigation and keyboard",
+      "status": "passed",
+      "durationMs": 15520
+    },
+    {
+      "name": "nine points map coordinates and Yandex routes",
+      "status": "passed",
+      "durationMs": 15043
+    },
+    {
+      "name": "truck validation confirmation deduplication persistence and repeat",
+      "status": "passed",
+      "durationMs": 11342
+    },
+    {
+      "name": "delivery fuel full tank sticky volume validation and history",
+      "status": "passed",
+      "durationMs": 15669
+    },
+    {
+      "name": "expired reservations cannot be confirmed",
+      "status": "passed",
+      "durationMs": 10749
+    },
+    {
+      "name": "countdown expires confirmed order while details remain open",
+      "status": "passed",
+      "durationMs": 15264
+    },
+    {
+      "name": "responsive layouts and persistent delivery slider",
+      "status": "passed",
+      "durationMs": 16402
+    },
+    {
+      "name": "manual price transparent source validation",
+      "status": "passed",
+      "durationMs": 14449
+    },
+    {
+      "name": "corrupted storage preserved and save blocked",
+      "status": "passed",
+      "durationMs": 10483
+    },
+    {
+      "name": "storage write failure keeps form and reports error",
+      "status": "passed",
+      "durationMs": 10927
+    },
+    {
+      "name": "map dependency failure degrades safely",
+      "status": "passed",
+      "durationMs": 10376
+    },
+    {
+      "name": "optional geolocation denial success and removal",
+      "status": "passed",
+      "durationMs": 12875
+    },
+    {
+      "name": "Telegram initialization theme viewport and BackButton",
+      "status": "passed",
+      "durationMs": 17563
+    },
+    {
+      "name": "cancel demo and clear local data controls",
+      "status": "passed",
+      "durationMs": 12660
+    },
+    {
+      "name": "history filters isolate truck and delivery",
+      "status": "passed",
+      "durationMs": 10632
+    },
+    {
+      "name": "reduced motion and navigation labels",
+      "status": "passed",
+      "durationMs": 10433
+    }
+  ]
+}
