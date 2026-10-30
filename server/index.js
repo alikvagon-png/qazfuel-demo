@@ -23,12 +23,12 @@ function createApp({store=null,prices=null,env=process.env,telegram=null}={}){
    if(url.pathname==='/api/session'&&req.method==='POST'){
     limit(req,'session',12);const data=await body(req);if(!data||typeof data!=='object'||Array.isArray(data)||Object.keys(data).some(k=>k!=='initData'))throw new HttpError(422,'Недопустимые данные входа');
     const currentMode=await mode();let identity=null;if(data.initData){identity=validateInitData(data.initData,env.BOT_TOKEN);}else if(currentMode==='live')throw new HttpError(401,'Откройте приложение через Telegram');
-    return send(201,await store.createSession(identity));
+    return send(201,await store.authenticate(identity,(req.headers.authorization||'').replace(/^Bearer /,'')));
    }
    const bearer=(req.headers.authorization||'').replace(/^Bearer /,'');const user=await store.session(bearer);
    const manager=await store.manager();const isManager=!!user.telegram_id&&String(user.telegram_id)===String(manager?.telegram_id)&&String(user.telegram_id)===env.MANAGER_TELEGRAM_ID;
    if(url.pathname==='/api/admin/rosstat-import'&&req.method==='POST'){if(!isManager)throw new HttpError(403,'Доступ менеджера не подтверждён');limit(req,'rosstat-import',3);const data=await body(req);try{return send(200,await prices.importFile(data.html,data.sourceUrl));}catch(e){throw new HttpError(422,'Официальный файл не принят: '+(/^rosstat_[a-z0-9_]+$/.test(e.message)?e.message:'invalid_document'));}}
-   if(url.pathname==='/api/profile'&&req.method==='GET')return send(200,{profile:await store.profile(user),telegramVerified:!!user.telegram_id,isManager});
+   if(url.pathname==='/api/profile'&&req.method==='GET')return send(200,{profile:await store.profile(user),telegramVerified:!!user.telegram_id,isManager,userId:user.id});
    if(url.pathname==='/api/profile'&&req.method==='PUT')return send(200,{profile:await store.profile(user,await body(req))});
    if(url.pathname==='/api/orders'&&req.method==='GET')return send(200,{orders:await store.list(user),serverNow:new Date().toISOString(),mode:await mode()});
    if(url.pathname==='/api/orders'&&req.method==='POST'){

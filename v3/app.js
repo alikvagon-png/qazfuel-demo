@@ -1,13 +1,16 @@
 /* QAZFUEL client; no client secrets. */
 (() => {
  'use strict';
- const C=window.QFCore,$=id=>document.getElementById(id),KEY='qazfuel_v3_state',DRAFT_KEY='qazfuel_v3_drafts';
+ const C=window.QFCore,$=id=>document.getElementById(id);let KEY='qazfuel_v3_state',DRAFT_KEY='qazfuel_v3_drafts';
  let closedPoints=new Set(),priceData=null;
  let state={version:3,orders:[],truck:null},current='home',filter='all',selected=C.points[0].id,map=null,markers=[],pending=null,submitting=false,toastTimer,geo=null,fuel='АИ-95',fullTank=false,lastSubmit=0,draftTimer,storageBroken=false,previousFocus=null;
  const launchInitData=new URLSearchParams(location.hash.slice(1)).get('tgWebAppData')||'';
- const API=window.QF_CONFIG?.apiBase||'',SESSION_KEY='qazfuel_v3_session',RETRY_KEY='qazfuel_v3_retry';
+ let sdkMatchedLaunch=false;
+ const currentInitData=()=>{const sdk=window.Telegram?.WebApp?.initData||'';if(!launchInitData)return sdk;if(sdk===launchInitData)sdkMatchedLaunch=true;return sdkMatchedLaunch&&sdk?sdk:launchInitData;};
+ const API=window.QF_CONFIG?.apiBase||'',SESSION_KEY='qazfuel_v3_session';let RETRY_KEY='qazfuel_v3_retry';
+ let authenticatedInitData='',identityEpoch=0;
  let remote={mode:'local_demo',ready:false,orders:[],token:'',config:null,error:''},clockOffset=0,priceRequest=0,connecting=false;
- const allOrders=()=>[...remote.orders,...state.orders],findOrder=id=>allOrders().find(o=>o.id===id),orderStatus=o=>C.status(o,Date.now()+clockOffset);
+ const allOrders=()=>API?remote.orders:[...remote.orders,...state.orders],findOrder=id=>allOrders().find(o=>o.id===id),orderStatus=o=>C.status(o,Date.now()+clockOffset);
  const modeNote=()=>API&&!remote.ready&&remote.config?.mode==='live'?'Для отправки заявки откройте приложение через меню @QazFuelServiceBot в Telegram.':API&&!remote.ready?'Приём заявок временно недоступен. Данные формы остаются на экране; подключитесь к серверу и повторите отправку.':remote.ready?(remote.mode==='live'?'Отправьте заявку. Менеджер подтвердит наличие топлива и условия заправки.':'Заявка сохранится как учебная заявка. Менеджеру не отправится и реальную бронь не создаст.'):'Заявка сохранится только в этом браузере. Менеджеру не отправится и реальную бронь не создаст.';
  const when=value=>new Date(value).toLocaleString('ru-RU',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
  const point=id=>C.points.find(p=>p.id===id)||C.points[0];
@@ -17,7 +20,7 @@
   try{
    const raw=localStorage.getItem(KEY);
    if(raw){const parsed=JSON.parse(raw);if(parsed.version!==3||!Array.isArray(parsed.orders)||!parsed.orders.every(C.validateOrder))throw Error('Invalid data');state={...parsed,orders:parsed.orders};}
-   else {
+   else if(!API){
     // Preserve earlier prototype records, never mistake them for server orders.
     const oldRaw=localStorage.getItem('qazfuel_v3_orders');
     if(oldRaw){const old=JSON.parse(oldRaw);if(!Array.isArray(old))throw Error('Invalid legacy data');state.orders=old.filter(o=>o&&typeof o.desc==='string'&&typeof o.created==='string'&&Number.isFinite(Date.parse(o.created))).map((o,i)=>({id:'legacy-'+i+'-'+Date.parse(o.created),kind:'legacy',createdAt:o.created,status:'pending',note:o.type+' · '+o.desc}));}
@@ -144,7 +147,7 @@
   const b=$('locateMe');b.disabled=true;$('geoStatus').textContent='Запрашиваем разрешение на геолокацию…';
   navigator.geolocation.getCurrentPosition(pos=>{geo={lat:pos.coords.latitude,lng:pos.coords.longitude};b.disabled=false;updateGeoStatus();saveDraft();},err=>{b.disabled=false;$('geoStatus').textContent=err.code===1?'Доступ к геолокации не разрешён. Просто укажите адрес вручную.':'Не удалось определить местоположение. Укажите адрес вручную.';},{enableHighAccuracy:false,timeout:10000,maximumAge:60000});
  }
- function saveDraft(){clearTimeout(draftTimer);draftTimer=setTimeout(()=>{try{if(!storageBroken)sessionStorage.setItem(DRAFT_KEY,JSON.stringify({truck:truckData(),delivery:deliveryData(),remember:$('saveTruck').checked}));}catch(e){/* A draft is optional; orders report durable-storage errors separately. */}},250);}
+ function saveDraft(){if(API&&!remote.ready)return;clearTimeout(draftTimer);draftTimer=setTimeout(()=>{try{if(!storageBroken)sessionStorage.setItem(DRAFT_KEY,JSON.stringify({truck:truckData(),delivery:deliveryData(),remember:$('saveTruck').checked}));}catch(e){/* A draft is optional; orders report durable-storage errors separately. */}},250);}
  function restoreDraft(){
   if(state.truck){$('truckBrand').value=state.truck.brand||'';$('truckPlate').value=state.truck.plate||'';}
   try{const d=JSON.parse(sessionStorage.getItem(DRAFT_KEY)||'null');if(!d)return;if(d.truck){const t=d.truck;if(C.points.some(p=>p.id===t.pointId))selected=t.pointId;$('pointSelect').value=selected;if(t.liters>=50&&t.liters<=600)$('truckLiters').value=t.liters;$('truckBrand').value=String(t.brand||'').slice(0,60);$('truckPlate').value=String(t.plate||'').slice(0,20);}$('saveTruck').checked=d.remember!==false;if(d.delivery){const x=d.delivery;fuel=['АИ-95','АИ-98','ДТ'].includes(x.fuel)?x.fuel:'АИ-95';fullTank=!!x.fullTank;if(x.liters>=10&&x.liters<=200)$('deliveryLiters').value=x.liters;$('deliveryAddress').value=String(x.address||'').slice(0,240);$('deliveryPhone').value=String(x.phone||'').slice(0,24);$('deliveryComment').value=String(x.comment||'').slice(0,500);geo=x.geo&&Number.isFinite(x.geo.lat)&&Number.isFinite(x.geo.lng)?x.geo:null;}}catch(e){/* Ignore invalid session draft without modifying durable orders. */}
@@ -161,9 +164,11 @@
 
  function syncClock(value){const t=Date.parse(value);if(Number.isFinite(t))clockOffset=t-Date.now();}
  async function request(path,{method='GET',body,key,anonymous=false}={}){
+  if(!anonymous&&path!=='/api/session'&&authenticatedInitData&&currentInitData()!==authenticatedInitData){dropPrivate();void bootstrap();throw Error('Аккаунт изменился. Подтверждаем новый вход.');}
+  const requestEpoch=identityEpoch;
   const headers={};if(body!==undefined)headers['Content-Type']='application/json';if(!anonymous&&remote.token)headers.Authorization='Bearer '+remote.token;if(key)headers['Idempotency-Key']=key;
   let response;try{response=await fetch(API+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(45000),cache:'no-store',credentials:'omit'});}catch{throw Error('Нет связи с сервером. Проверьте интернет. Повторная отправка с теми же данными не создаст дубликат.');}
-  let data;try{data=await response.json();}catch{throw Error('Сервер вернул неверный ответ. Повторите позже.');}if(!response.ok){if(response.status===401)remote.ready=false;throw Error(data.error||'Не удалось выполнить запрос.');}return data;
+  let data;try{data=await response.json();}catch{throw Error('Сервер вернул неверный ответ. Повторите позже.');}if(!anonymous&&path!=='/api/session'&&authenticatedInitData&&currentInitData()!==authenticatedInitData){dropPrivate();void bootstrap();throw Error('Аккаунт изменился. Подтверждаем новый вход.');}if(!anonymous&&requestEpoch!==identityEpoch)throw Error('Сеанс изменился. Запрос отменён.');if(!response.ok){if(response.status===401)remote.ready=false;throw Error(data.error||'Не удалось выполнить запрос.');}return data;
  }
  function modeUI(){
   const live=remote.config?.mode==='live'||remote.mode==='live';const text=modeNote();document.body.dataset.orderMode=remote.mode;document.body.dataset.ready=String(remote.ready);
@@ -175,20 +180,34 @@
   document.querySelectorAll('.form-disclaimer').forEach(el=>el.textContent=live?'Отправьте заявку. Менеджер подтвердит наличие топлива и условия заправки.':text);
   $('managerTools').hidden=!remote.ready||!remote.isManager;if(current==='admin'&&(!remote.ready||!remote.isManager))go('home');
  }
+ function dropPrivate(){clearTimeout(toastTimer);$('toast').hidden=true;delete $('orderDialog').dataset.orderId;identityEpoch++;authenticatedInitData='';state={version:3,orders:[],truck:null};remote.userId=null;remote.telegramVerified=false;remote.ready=false;remote.isManager=false;remote.orders=[];remote.token='';clearTimeout(draftTimer);pending=null;if($('orderDialog').open){$('orderDialog').close();document.body.classList.remove('dialog-open');}$('dialogBody').innerHTML='';$('truckBrand').value='';$('truckPlate').value='';$('deliveryAddress').value='';$('deliveryPhone').value='';$('deliveryComment').value='';geo=null;updateGeoStatus();renderOrders();modeUI();}
  async function bootstrap(){
   if(connecting)return;
   if(!API){modeUI();loadPrices();return;}
-  connecting=true;remote.ready=false;remote.isManager=false;remote.error='Подключаемся…';modeUI();
+  connecting=true;dropPrivate();let attemptProof='';remote.error='Подключаемся…';modeUI();
   try{
    const config=await request('/api/config',{anonymous:true});remote.config=config;remote.mode=config.mode;syncClock(config.serverNow);
    if(!config.database)throw Error('Приём заявок временно недоступен. Попробуйте позже.');
-   remote.token=localStorage.getItem(SESSION_KEY)||'';
-   if(remote.token){try{const existing=await request('/api/profile');if(!existing.telegramVerified&&(config.mode==='live'||(config.telegramConfigured&&(window.Telegram?.WebApp?.initData||launchInitData))))remote.token='';}catch(e){if(remote.ready===false&&(e.message.includes('Сеанс')||e.message.includes('сеанс')))remote.token='';else throw e;}}
-   if(!remote.token){const initData=config.telegramConfigured?(window.Telegram?.WebApp?.initData||launchInitData):'';const session=await request('/api/session',{method:'POST',body:initData?{initData}:{},anonymous:true});remote.token=session.token;localStorage.setItem(SESSION_KEY,session.token);}
+   const initData=config.telegramConfigured?currentInitData():'';attemptProof=initData;
+   const candidate=sessionStorage.getItem(SESSION_KEY)||localStorage.getItem(SESSION_KEY)||'';if(config.mode==='live'||config.telegramConfigured)localStorage.removeItem(SESSION_KEY);
+   remote.token=candidate;
+   if((config.mode==='live'||config.telegramConfigured)&&!initData){remote.token='';throw Error('Откройте приложение через Telegram для подтверждения текущего аккаунта');}
+   if(initData){
+    const session=await request('/api/session',{method:'POST',body:{initData}});if(initData!==currentInitData())throw Error('Аккаунт изменился. Повторяем вход.');remote.token=session.token;remote.userId=session.userId;remote.telegramVerified=!!session.telegramVerified;authenticatedInitData=initData;
+    localStorage.removeItem(SESSION_KEY);sessionStorage.setItem(SESSION_KEY,session.token);
+   }else{
+    if(remote.token){try{const existing=await request('/api/profile');if(existing.telegramVerified)remote.token='';else remote.userId=existing.userId;}catch(e){remote.token='';}}
+    if(!remote.token){const session=await request('/api/session',{method:'POST',body:{},anonymous:true});remote.token=session.token;remote.userId=session.userId;localStorage.setItem(SESSION_KEY,session.token);}
+   }
+   if(remote.userId){
+    clearTimeout(draftTimer);KEY='qazfuel_v3_state:'+remote.userId;DRAFT_KEY='qazfuel_v3_drafts:'+remote.userId;RETRY_KEY='qazfuel_v3_retry:'+remote.userId;
+    state={version:3,orders:[],truck:null};storageBroken=false;$('storageBanner').hidden=true;
+    $('truckBrand').value='';$('truckPlate').value='';$('deliveryAddress').value='';$('deliveryPhone').value='';$('deliveryComment').value='';geo=null;readState();restoreDraft();updateTruck();updateDelivery();updateGeoStatus();
+   }
    const {profile,telegramVerified,isManager}=await request('/api/profile');remote.isManager=!!isManager;$('managerTools').hidden=!isManager;remote.telegramVerified=telegramVerified;if(!sessionStorage.getItem(DRAFT_KEY)){if(profile.truck){$('truckBrand').value=profile.truck.brand;$('truckPlate').value=profile.truck.plate;}if(profile.phone)$('deliveryPhone').value=profile.phone;if(profile.address)$('deliveryAddress').value=profile.address;}
    remote.ready=true;remote.error='';await refreshRemote();modeUI();
-  }catch(e){remote.ready=false;remote.error=e.message;modeUI();}
-  connecting=false;modeUI();loadPrices();
+  }catch(e){dropPrivate();remote.error=e.message;modeUI();}
+  connecting=false;if(attemptProof&&currentInitData()!==attemptProof){void bootstrap();return;}modeUI();loadPrices();
  }
  async function refreshRemote(){try{const r=await request('/api/orders');if(r.mode==='live'&&!remote.telegramVerified&&remote.mode!=='live'){bootstrap();return;}const active=$('orderDialog').dataset.orderId,before=findOrder(active),next=r.orders.find(o=>o.id===active);remote.orders=r.orders;if($('orderDialog').open&&before&&next&&(before.status!==next.status||before.notification!==next.notification))details(active);remote.mode=r.mode;syncClock(r.serverNow);remote.error='';renderOrders();modeUI();}catch(e){remote.error='Не удалось обновить историю: '+e.message;modeUI();}}
  async function refreshDetails(id){try{const r=await request('/api/orders/'+id);syncClock(r.serverNow);remote.orders=remote.orders.map(o=>o.id===id?r.order:o);if($('orderDialog').dataset.orderId!==id)return;const old=$('serverEvents');if(old)old.remove();$('dialogBody').insertAdjacentHTML('beforeend',`<div id="serverEvents"><p class="input-note">Полный номер: ${escape(id)}</p><h3>История статусов</h3>${(r.order.events||[]).map(e=>`<p class="input-note">${when(e.createdAt)} · ${escape(statuses[e.status]||e.status)} · ${e.actor==='test-client'?'тест':e.actor.startsWith('manager:')?'менеджер':'сервер / клиент'}</p>`).join('')}</div>`);}catch(e){if($('orderDialog').dataset.orderId===id)$('dialogError').textContent=e.message;}}
@@ -230,5 +249,5 @@
  $('telegramSdk')?.addEventListener('load',()=>{telegram();if(API&&!remote.ready&&window.Telegram?.WebApp?.initData)bootstrap();});
 
  async function refreshPoints(){try{const r=await request('/api/points',{anonymous:true});closedPoints=new Set(r.points.filter(p=>p.closed).map(p=>p.id));document.querySelectorAll('[data-book-point]').forEach(b=>{const closed=closedPoints.has(b.dataset.bookPoint);b.disabled=closed;if(closed)b.textContent='Временно закрыта';else if(b.textContent==='Временно закрыта')b.textContent='Забронировать →';});document.querySelectorAll('#pointSelect option').forEach(o=>{o.disabled=closedPoints.has(o.value);o.textContent=point(o.value).name+' · '+point(o.value).country+(o.disabled?' · временно закрыта':'');});document.querySelectorAll('.point-card').forEach(card=>{let note=card.querySelector('.closure-note');if(closedPoints.has(card.dataset.point)){if(!note){note=document.createElement('p');note.className='closure-note input-note';note.textContent='Точка временно закрыта для новых заявок';card.querySelector('.point-copy').append(note);}}else note?.remove();});}catch{/* Server validates availability again when submitting. */}}
- readState();renderPoints();restoreDraft();choosePoint(selected);updateTruck();updateDelivery();updateGeoStatus();renderOrders();telegram();go(C.initialScreen(location.hash,location.search),{history:false,focus:false});setInterval(tick,1000);renderPrices();bootstrap();refreshPoints();setInterval(loadPrices,300000);setInterval(refreshPoints,30000);setInterval(()=>{if(remote.ready&&!document.hidden)refreshRemote();},20000);document.addEventListener('visibilitychange',()=>{if(!document.hidden&&remote.ready)refreshRemote();});
+ if(!API)readState();renderPoints();if(!API)restoreDraft();choosePoint(selected);updateTruck();updateDelivery();updateGeoStatus();renderOrders();telegram();go(C.initialScreen(location.hash,location.search),{history:false,focus:false});setInterval(tick,1000);renderPrices();bootstrap();refreshPoints();setInterval(loadPrices,300000);setInterval(refreshPoints,30000);setInterval(()=>{if(remote.ready&&!document.hidden)refreshRemote();},20000);document.addEventListener('visibilitychange',()=>{if(!document.hidden&&remote.ready)refreshRemote();});
 })();

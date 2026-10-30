@@ -16,6 +16,12 @@ class Store{
    await c.query('INSERT INTO qf_sessions(token_hash,user_id) VALUES($1,$2)',[hash(bearer),u.id]);return u;
   });return {token:bearer,userId:user.id,telegramVerified:!!user.telegram_id};
  }
+ async authenticate(identity,bearer){
+  if(identity&&bearer){let user;try{user=await this.session(bearer);}catch(e){if(!(e instanceof HttpError)||e.status!==401)throw e;}
+   if(user&&String(user.telegram_id)===identity.telegramId){await this.transaction(async c=>{const row=(await c.query('INSERT INTO qf_auth_replays(fingerprint,user_id) VALUES($1,$2) ON CONFLICT(fingerprint) DO UPDATE SET fingerprint=excluded.fingerprint RETURNING user_id',[identity.fingerprint,user.id])).rows[0];if(row.user_id!==user.id)throw new HttpError(401,'Данные входа принадлежат другому пользователю');});return {token:bearer,userId:user.id,telegramVerified:true};}
+  }
+  return this.createSession(identity);
+ }
  async session(bearer){if(typeof bearer!=='string'||!/^[\w-]{40,100}$/.test(bearer))throw new HttpError(401,'Сеанс не найден');const r=await this.pool.query('SELECT u.* FROM qf_sessions s JOIN qf_users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>clock_timestamp()',[hash(bearer)]);if(!r.rowCount)throw new HttpError(401,'Сеанс истёк. Войдите заново.');return r.rows[0];}
  async expire(c=this.pool){const r=await c.query("UPDATE qf_orders SET status='expired',updated_at=clock_timestamp() WHERE kind='truck' AND status IN ('pending','confirmed') AND expires_at<=clock_timestamp() RETURNING id");for(const o of r.rows)await c.query("INSERT INTO qf_order_events(order_id,status,actor) VALUES($1,'expired','server')",[o.id]);}
  serialize(r){return {...r.payload,id:r.id,status:r.status,createdAt:new Date(r.created_at).toISOString(),expiresAt:r.expires_at?new Date(r.expires_at).toISOString():null,updatedAt:new Date(r.updated_at).toISOString(),mode:r.mode,server:true,verification:r.mode==='server_test'&&r.idempotency_key.startsWith('telegram_verification_'),notification:r.notification==='sent'?'sent':r.notification==='pending'?'pending':r.mode==='server_test'?'disabled':'pending'};}
