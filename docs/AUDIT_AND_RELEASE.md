@@ -22,7 +22,7 @@ Shared core business rules in v3/core.js. Truck requests only diesel; validation
 
 Telegram SDK is asynchronous so its network failure cannot block the app. SDK initialization/theme/viewport/back/safe-area hooks enhance the browser demo. No trusted authentication from initDataUnsafe; no server authentication is claimed. Proposed server architecture lives in SERVER_ARCHITECTURE.md.
 
-Real price-source HTTP testing documented in PRICE_SOURCES.md. Automatic regional price is explicitly unavailable. Optional manual calculator requires region, source and check within 24h, and never applies sample prices to actual orders. No cost/profit calculations.
+Real price-source HTTP testing documented in PRICE_SOURCES.md. Automatic regional price is explicitly unavailable. The customer calculator was removed after owner clarification: a verified current regional API quote will always receive the fixed launch discount of 3 RUB/l. No cost/profit calculations.
 
 ## Limits
 

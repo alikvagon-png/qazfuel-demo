@@ -75,3 +75,7 @@ The complete WebKit suite against https://qazfuel-v3-preview.onrender.com passed
 In addition, cloud Chromium verified the real externally loaded SDK, map tiles, delivery validation, full-tank review, local test-order saving/history after reload, and an actual Yandex automotive route from Orenburg to Martuk. No real customer submission occurred. Physical iPhone/Telegram WebView testing remains a bounded limitation.
 
 Production service remained on 296ed4c660d686b70d390d20b028551bcc3186ce with its original deploy dep-dbi1bb61egvs73ek5800. Main, public/, production settings, and bot configuration were not changed. No paid resources were created.
+
+## Pricing policy clarification
+
+Owner clarified the launch policy: market API quote minus a fixed 3 RUB/l, for AI-95, AI-98 and diesel. The customer manual calculator and discount selector are removed. Price-source research limitations still apply; no automatic feed is claimed connected. Shared pricing rules reject stale, regionless, sourceless or incompatible quotes. Nine business-rule tests passed after this change. The earlier 206-assertion report describes the prior release; its manual-calculator case has now been replaced. The current environment no longer has the WebKit binary, so this change receives a published-browser smoke check rather than a claimed rerun of that earlier suite.

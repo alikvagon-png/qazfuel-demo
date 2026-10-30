@@ -32,6 +32,7 @@ async function boot(options={}) {
  return {context,page,errors};
 }
 async function test(name,fn){
+ if(process.env.TEST_FILTER&&!new RegExp(process.env.TEST_FILTER).test(name))return;
  const start=Date.now();let fixture;
  try{fixture=await boot(fn.options||{});await fn(fixture.page,fixture);equal(fixture.errors,[],'no uncaught application JavaScript errors');results.push({name,status:'passed',durationMs:Date.now()-start});console.log('PASS '+name);}
  catch(e){if(fixture)await fixture.page.screenshot({animations:'disabled',path:path.join(out,name.replace(/[^a-z0-9]+/gi,'-')+'.png'),fullPage:true}).catch(()=>{});results.push({name,status:'failed',error:e.stack,durationMs:Date.now()-start});console.log('FAIL '+name+': '+e.message);}
@@ -132,11 +133,14 @@ async function book(page,point='martuk'){
   await page.locator('#deliveryPhone').scrollIntoViewIfNeeded();b=await page.locator('#deliveryVolumePanel').boundingBox();ok(b.y>=0&&b.y+b.height<568,'volume visible after scrolling small iPhone');
   await page.screenshot({animations:'disabled',path:path.join(out,'delivery-320x568.png')});
  });
- await test('manual price transparent source validation',async page=>{
-  await page.locator('[data-go="prices"]').first().click();ok((await page.locator('.price-state').innerText()).includes('недоступны'),'API unavailable state explicit');
-  await page.locator('#manualPriceDetails summary').click();await page.locator('#manualPriceForm button').click();ok((await page.locator('#manualPriceError').innerText()).length>0,'source and region required');
-  await page.locator('#priceRegion').fill('Москва');await page.locator('#priceSource').fill('Тестовый ручной источник');await page.locator('#priceDate').fill(new Date(Date.now()-60000).toISOString().slice(0,16));await page.locator('#marketPrice').fill('70.50');await page.locator('#manualPriceForm button').click();
-  const text=await page.locator('#manualPriceResult').innerText();ok(text.includes('68,5'),'default two ruble discount');ok(text.includes('не применяется к заказам'),'manual calculator cannot set order prices');
+ await test('fixed API discount with no manual calculator',async page=>{
+  await page.locator('[data-go="prices"]').first().click();
+  ok((await page.locator('.price-state').innerText()).includes('недоступны'),'API unavailable state explicit');
+  const text=await page.locator('#prices').innerText();
+  ok(text.includes('Рыночная цена − 3 ₽/л'),'fixed three ruble launch discount');
+  ok(text.includes('АИ-95, АИ-98 и дизелю'),'same rule for all grades');
+  equal(await page.locator('#prices input, #prices select, #prices form').count(),0,'no customer price inputs or discount settings');
+  equal(await page.locator('#manualPriceDetails').count(),0,'manual calculator removed');
  });
  const corrupt=async(page)=>{ok(await page.locator('#storageBanner').isVisible(),'corrupt storage warning');await book(page);};
  corrupt.options={init:()=>localStorage.setItem('qazfuel_v3_state','{broken')};

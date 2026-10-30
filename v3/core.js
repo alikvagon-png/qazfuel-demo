@@ -57,12 +57,14 @@
     if(!o||typeof o!=='object'||typeof o.id!=='string'||!/^[a-zA-Z0-9_-]{1,100}$/.test(o.id)||!validDate(o.createdAt)||!['pending','confirmed','cancelled'].includes(o.status))return false;
     return o.kind==='legacy' ? typeof o.note==='string' : o.kind==='truck' ? !Object.keys(validateTruck(o)).length : o.kind==='delivery' ? !Object.keys(validateDelivery(o)).length : false;
   }
-  function manualPrice(market,discount,checkedAt,now=Date.now()){
-    const m=Number(market),d=Number(discount),t=Date.parse(checkedAt);
-    if(!Number.isFinite(m)||m<=3||m>999||![1,2,3].includes(d)||!Number.isFinite(t)||t>now+60000||now-t>TTL)throw Error('Укажите цену от 3,01 до 999 ₽/л и проверку источника за последние 24 часа');
-    return Math.round((m-d)*100)/100;
+  const LAUNCH_DISCOUNT_RUB = 3;
+  function priceFromMarket(quote,now=Date.now()){
+    if(!quote||!['АИ-95','АИ-98','ДТ'].includes(quote.fuel)||quote.currency!=='RUB'||quote.unit!=='liter'||typeof quote.region!=='string'||!quote.region.trim()||typeof quote.source!=='string'||!quote.source.trim())throw Error('Нет подтверждённой региональной котировки API');
+    const m=quote.marketPrice,t=Date.parse(quote.observedAt);
+    if(!Number.isFinite(m)||m<=LAUNCH_DISCOUNT_RUB||m>999||!Number.isFinite(t)||t>now+60000||now-t>TTL)throw Error('Рыночная цена API недоступна или устарела');
+    return {...quote,marketPrice:Math.round(m*100)/100,discount:LAUNCH_DISCOUNT_RUB,price:(Math.round(m*100)-LAUNCH_DISCOUNT_RUB*100)/100};
   }
-  const api={TTL,points,routeUrl,status,expiration,remaining,phone,validateTruck,validateDelivery,validateOrder,manualPrice};
+  const api={TTL,points,routeUrl,status,expiration,remaining,phone,validateTruck,validateDelivery,validateOrder,LAUNCH_DISCOUNT_RUB,priceFromMarket};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   root.QFCore=api;
 })(typeof window!=='undefined'?window:globalThis);

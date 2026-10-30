@@ -3,7 +3,6 @@
  'use strict';
  const C=window.QFCore,$=id=>document.getElementById(id),KEY='qazfuel_v3_state',DRAFT_KEY='qazfuel_v3_drafts';
  let state={version:3,orders:[],truck:null},current='home',filter='all',selected=C.points[0].id,map=null,markers=[],pending=null,submitting=false,toastTimer,geo=null,fuel='АИ-95',fullTank=false,lastSubmit=0,draftTimer,storageBroken=false,previousFocus=null;
- const money=value=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(value);
  const when=value=>new Date(value).toLocaleString('ru-RU',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
  const point=id=>C.points.find(p=>p.id===id)||C.points[0];
  const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -156,7 +155,6 @@
  $('pointSelect').addEventListener('change',()=>{choosePoint($('pointSelect').value);saveDraft();});$('truckLiters').addEventListener('input',()=>{updateTruck();saveDraft();});$('deliveryLiters').addEventListener('input',()=>{fullTank=false;updateDelivery();saveDraft();});$('fullTank').addEventListener('click',()=>{fullTank=!fullTank;updateDelivery();saveDraft();});$('locateMe').addEventListener('click',locate);$('fitMap').addEventListener('click',fitMap);
  document.querySelectorAll('input,textarea').forEach(input=>input.addEventListener('input',saveDraft));
  $('orderDialog').addEventListener('cancel',e=>{e.preventDefault();closeDialog();});$('orderDialog').addEventListener('close',()=>{document.body.classList.remove('dialog-open');delete $('orderDialog').dataset.orderId;});
- $('manualPriceForm').addEventListener('submit',e=>{e.preventDefault();$('manualPriceResult').textContent='';$('manualPriceError').textContent='';try{const region=$('priceRegion').value.trim(),source=$('priceSource').value.trim();if(region.length<2||source.length<3)throw Error('Укажите регион и источник цены');const checked=new Date($('priceDate').value);const price=C.manualPrice($('marketPrice').value,$('priceDiscount').value,checked.toISOString());$('manualPriceResult').textContent=`Демопример: ${money(price)} ₽/л. Регион: ${region}. Источник: ${source}. Проверено: ${when(checked.toISOString())}. Цена не применяется к заказам.`;}catch(e){$('manualPriceError').textContent=e instanceof RangeError?'Укажите дату проверки источника':e.message;}});
  window.addEventListener('popstate',()=>{if($('orderDialog').open)closeDialog();go(location.hash.slice(1),{history:false});});
  window.addEventListener('storage',event=>{if(event.key===KEY){storageBroken=false;readState();if(!storageBroken)$('storageBanner').hidden=true;renderOrders();}});
  window.addEventListener('resize',updateViewport);window.visualViewport?.addEventListener('resize',updateViewport);
