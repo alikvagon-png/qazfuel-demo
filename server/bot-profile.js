@@ -6,8 +6,9 @@ async function syncProfile(tg){
  const photo=await fs.readFile(path.join(__dirname,'assets/bot-avatar.jpg'));
  const description='QAZFUEL — топливо для вашего маршрута и города. Дизель в 9 точках Казахстана и России, доставка АИ-95, АИ-98 и дизеля по Москве и области. Выберите услугу в меню, оформите заявку и отслеживайте её статус. Наличие, стоимость и условия подтверждает менеджер.';
  const short='Дизель на трассе · Доставка по Москве и области. Заявки, карта и связь с менеджером — в QAZFUEL.';
- const fingerprint=hash(JSON.stringify({appBase:UI.BASE,commands:UI.commands,description,short,avatar:hash(photo.toString('base64')),version:1}));
+ const fingerprint=hash(JSON.stringify({name:'QAZFUEL',appBase:UI.BASE,commands:UI.commands,description,short,avatar:hash(photo.toString('base64')),version:1}));
  const old=await tg.store.pool.query('SELECT profile_hash FROM qf_bot_profiles WHERE bot_id=$1',[me.id]);if(old.rows[0]?.profile_hash===fingerprint)return {configured:true,cached:true};
+ await tg.call('setMyName',{name:'QAZFUEL'});
  await tg.call('setMyCommands',{commands:UI.commands});await tg.call('setChatMenuButton',{menu_button:{type:'web_app',text:'Открыть QAZFUEL',web_app:{url:UI.BASE}}});
  await tg.call('setMyDescription',{description});await tg.call('setMyShortDescription',{short_description:short});
  const form=new FormData();form.set('photo',JSON.stringify({type:'static',photo:'attach://avatar'}));form.set('avatar',new Blob([photo],{type:'image/jpeg'}),'qazfuel.jpg');

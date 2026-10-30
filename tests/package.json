@@ -11,7 +11,8 @@
     "bot-links": "node bot-links.e2e.cjs",
     "operations": "node operations.e2e.cjs",
     "rosstat": "node rosstat.e2e.cjs",
-    "rosstat-live": "node rosstat-live.e2e.cjs"
+    "rosstat-live": "node rosstat-live.e2e.cjs",
+    "client-cleanup": "node client-cleanup.e2e.cjs"
   },
   "devDependencies": {
     "playwright": "1.62.1"

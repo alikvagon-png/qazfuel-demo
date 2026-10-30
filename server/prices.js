@@ -1,5 +1,6 @@
 'use strict';
 const R=require('./rosstat');
+function publicationDate(url){const m=/_(\d{2})-(\d{2})-(20\d{2})\.html?$/.exec(url||'');return m?`${m[3]}-${m[2]}-${m[1]}`:null;}
 const REGIONS={moscow:'Москва',moscow_oblast:'Москва'};
 class Prices{
  constructor({store=null,fetcher=require('./rosstat-http').fetchOfficial}={}){this.store=store;this.fetcher=fetcher;this.busy=false;}
@@ -10,7 +11,7 @@ class Prices{
  }catch(e){const code=/^rosstat_[a-z0-9_]+$/.test(e.message)?e.message:'rosstat_import_failed';console.error('rosstat_import_error',{code});if(claimed)await this.store.pool.query('UPDATE qf_rosstat_state SET last_error=$1 WHERE singleton=true',[code]).catch(()=>{});
  }finally{if(claimed)await this.store.pool.query('UPDATE qf_rosstat_state SET lease_until=NULL WHERE singleton=true').catch(()=>{});this.busy=false;}}
  async get(){if(this.store)void this.refresh().catch(()=>{});const row=this.store?await R.latest(this.store.pool):null;const state=this.store?(await this.store.pool.query('SELECT last_attempt,last_success,last_error,next_attempt FROM qf_rosstat_state WHERE singleton=true')).rows[0]:null;
- const items=['АИ-95','АИ-98','ДТ'].map(fuel=>{const p=R.snapshot(row,{fuel,liters:1});return {fuel,available:p.available,marketPrice:p.available?p.marketPriceKopecks/100:null,price:p.available?p.unitPriceKopecks/100:null,marketPriceKopecks:p.marketPriceKopecks??null,unitPriceKopecks:p.unitPriceKopecks,discount:3,region:'Москва',currency:'RUB',unit:'liter',source:'Росстат',sourceUrl:p.sourceUrl,reportDate:p.reportDate,observedAt:p.reportDate?p.reportDate+'T00:00:00Z':null,version:R.VERSION,stale:!!p.stale,importMethod:p.importMethod||null};});
+ const items=['АИ-95','АИ-98','ДТ'].map(fuel=>{const p=R.snapshot(row,{fuel,liters:1});return {fuel,available:p.available,marketPrice:p.available?p.marketPriceKopecks/100:null,price:p.available?p.unitPriceKopecks/100:null,marketPriceKopecks:p.marketPriceKopecks??null,unitPriceKopecks:p.unitPriceKopecks,discount:3,region:'Москва',currency:'RUB',unit:'liter',source:'Росстат',sourceUrl:p.sourceUrl,reportDate:p.reportDate,publishedAt:row?publicationDate(row.publication_url):null,observedAt:p.reportDate?p.reportDate+'T00:00:00Z':null,version:R.VERSION,stale:!!p.stale,importMethod:p.importMethod||null};});
  return {region:'Москва',regionId:'moscow',appliesTo:'Все 9 точек и доставка по Москве и Московской области',discount:3,currency:'RUB',unit:'liter',checkedAt:new Date().toISOString(),items,sources:[{name:'Росстат',url:row?.publication_url||R.INDEX,sourceUpdatedAt:row?String(row.report_date).slice(0,10):null,reachable:!!state?.last_success&&!state?.last_error}],import:state||null,cacheSeconds:21600,notice:row?'Средняя цена по данным Росстата за указанную дату. Итоговая стоимость подтверждается менеджером.':'Цена уточняется: официальная таблица Росстата ещё не импортирована.'};}
  async importFile(html,url){const data=R.parsePublication(html,R.officialUrl(url));return R.save(this.store,data,'admin_file');}
  async importUrl(url){url=R.officialUrl(url);const data=R.parsePublication(await R.fetchHTML(url,this.fetcher),url);return R.save(this.store,data,'admin_url');}
