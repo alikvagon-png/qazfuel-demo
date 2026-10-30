@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: qazfuel-demo
+    runtime: static
+    buildCommand: "test -f public/index.html"
+    staticPublishPath: ./public
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+
