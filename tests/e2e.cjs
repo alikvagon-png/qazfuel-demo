@@ -21,6 +21,7 @@ async function boot(options={}) {
  const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,...options.context});
  const page=await context.newPage(); const errors=[];
  page.setDefaultTimeout(8000);
+ page.setDefaultNavigationTimeout(Number(process.env.NAVIGATION_TIMEOUT)||45000);
  await page.route('https://telegram.org/js/telegram-web-app.js',route=>route.abort());
  page.on('pageerror',e=>errors.push(e.message));
  if(options.init)await page.addInitScript(options.init);

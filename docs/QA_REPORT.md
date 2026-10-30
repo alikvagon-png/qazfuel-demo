@@ -59,3 +59,11 @@ The script hosts `v3/` locally when `BASE_URL` is unset. `QA_OUTPUT` optionally 
 - Market fuel API research is documented separately. No unverified market numbers or final prices are represented as current.
 - There is no real order API, manager authorization, payment processing, or server-side Telegram `initData` validation in this static demonstration. Simulated confirmation never creates an actual reservation.
 - A successful local run is not proof of Render deployment. Verify the preview service's branch, publish directory, commit, `Live` deploy status, HTTPS response, and post-publication browser flows before declaring the preview published.
+
+## Post-publication verification and small fixes
+
+First Render deploy fd1ba39d070f540d305b86ce17636a461122def0 reached Live (dep-dbi413942hec73f7dca0). Cloud Chromium opened the published UI and loaded six OpenStreetMap tile images. A representative Yandex route was actually calculated from Orenburg to the supplied Martuk coordinate; all nine URL destinations are separately covered by automation.
+
+Live inspection found Telegram's standalone-browser SDK version 6.0 warns when BackButton is used. BackButton hooks are now gated to SDK >=6.1; modern Telegram functionality is retained. Zoom controls moved to the bottom-left so the northwestern markers are not hidden under them. Full local WebKit regression after these changes: 16/16 cases, 206 assertions passed at 2026-10-30T07:04:09Z.
+
+Initial remote WebKit requests exceeded the old 8-second navigation timeout while curl and cloud Chromium loaded successfully. Test navigation budget is now 45 seconds (actions remain 8 seconds); this changes the test harness only. Final remote results are recorded in the completion report after the last deploy; no remote pass is inferred from a local pass.

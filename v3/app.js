@@ -52,7 +52,7 @@
   if(map){map.invalidateSize();return;}
   if(!window.L){mapFallback();return;}
   try{
-   map=L.map('fuelMap',{scrollWheelZoom:false,attributionControl:true}).setView([49.3,48.4],4);
+   map=L.map('fuelMap',{scrollWheelZoom:false,attributionControl:true,zoomControl:false}).setView([49.3,48.4],4);L.control.zoom({position:'bottomleft'}).addTo(map);
    const layer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>'}).addTo(map);
    let failedTiles=0;layer.on('tileerror',()=>{if(++failedTiles===3)toast('Подложка карты недоступна. Точки и маршруты работают в списке.');});
    markers=C.points.map((p,i)=>{const m=L.marker([p.lat,p.lng],{title:p.name,keyboard:true,alt:p.name,icon:L.divIcon({className:'map-pin'+(p.id===selected?' selected':''),html:`<span>${i+1}</span>`,iconSize:[34,40],iconAnchor:[17,40]})}).addTo(map);const selectMarker=()=>{choosePoint(p.id);map.setView([p.lat,p.lng],Math.max(map.getZoom(),9));};m.on('click',selectMarker);const icon=m.getElement();if(icon){icon.setAttribute('aria-label','Выбрать точку '+p.name);icon.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();selectMarker();}});}return m;});
@@ -131,7 +131,7 @@
  function telegram(){
   const tg=window.Telegram?.WebApp;if(!tg||telegramBound)return;telegramBound=true;
   const sync=()=>{document.documentElement.style.setProperty('--tg-safe-top',(tg.safeAreaInset?.top||0)+'px');document.documentElement.style.setProperty('--tg-content-top',(tg.contentSafeAreaInset?.top||0)+'px');document.documentElement.style.setProperty('--tg-safe-bottom',(tg.safeAreaInset?.bottom||0)+'px');if(tg.colorScheme)document.documentElement.dataset.telegramTheme=tg.colorScheme;updateViewport();};
-  try{tg.ready();tg.expand();if(tg.isVersionAtLeast?.('6.1')){tg.setHeaderColor('#0d1520');tg.setBackgroundColor('#0d1520');}['themeChanged','viewportChanged','safeAreaChanged','contentSafeAreaChanged'].forEach(event=>tg.onEvent(event,sync));tg.BackButton?.onClick(()=>{if($('orderDialog').open)closeDialog();else go('home');});const backSync=()=>{if(current==='home')tg.BackButton?.hide();else tg.BackButton?.show();};window.addEventListener('qf:navigate',backSync);sync();backSync();}catch(e){/* Telegram enhancements must never block the browser demo. */}
+  try{tg.ready();tg.expand();if(tg.isVersionAtLeast?.('6.1')){tg.setHeaderColor('#0d1520');tg.setBackgroundColor('#0d1520');}['themeChanged','viewportChanged','safeAreaChanged','contentSafeAreaChanged'].forEach(event=>tg.onEvent(event,sync));const supportsBack=!!tg.isVersionAtLeast?.('6.1');if(supportsBack)tg.BackButton?.onClick(()=>{if($('orderDialog').open)closeDialog();else go('home');});const backSync=()=>{if(!supportsBack)return;if(current==='home')tg.BackButton?.hide();else tg.BackButton?.show();};window.addEventListener('qf:navigate',backSync);sync();backSync();}catch(e){/* Telegram enhancements must never block the browser demo. */}
  }
  document.addEventListener('click',event=>{
   const b=event.target.closest('button');if(!b||b.disabled)return;
