@@ -4,7 +4,7 @@ function createApp({store=null,prices=null,env=process.env,telegram=null}={}){
  prices=prices||new Prices({store});const tg=telegram||(store?new Telegram(store,env):null);const allowed=new Set((env.ALLOWED_ORIGINS||'https://qazfuel-v3-preview.onrender.com').split(',').map(s=>s.trim()).filter(Boolean));const limits=new Map();
  function limit(req,bucket,max){const ip=(req.headers['x-forwarded-for']||req.socket.remoteAddress||'unknown').split(',').pop().trim();const key=bucket+':'+ip;const now=Date.now();let r=limits.get(key);if(!r||now>r.reset)r={n:0,reset:now+60000};r.n++;limits.set(key,r);if(r.n>max)throw new HttpError(429,'Слишком много запросов. Повторите через минуту.');if(limits.size>10000)for(const [k,v] of limits)if(v.reset<now)limits.delete(k);}
  async function body(req){if(!(req.headers['content-type']||'').startsWith('application/json'))throw new HttpError(415,'Нужен JSON');const chunks=[];let bytes=0;for await(const chunk of req){bytes+=chunk.length;if(bytes>(req.url==='/api/admin/rosstat-import'?3100000:32768))throw new HttpError(413,'Слишком большой запрос');chunks.push(chunk);}try{return JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');}catch{throw new HttpError(400,'Некорректный JSON');}}
- async function mode(){return store?(env.ORDER_INTAKE_ENABLED==='true'&&tg&&await tg.ready()?'live':'server_test'):'local_demo';}
+ async function mode(){return store?(env.ORDER_INTAKE_ENABLED==='true'?(tg&&await tg.ready()?'live':'unavailable'):'server_test'):'local_demo';}
  const server=http.createServer(async(req,res)=>{
   const origin=req.headers.origin;res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('Vary','Origin');
   const send=(status,data)=>{res.writeHead(status);res.end(JSON.stringify(data));};
@@ -22,7 +22,7 @@ function createApp({store=null,prices=null,env=process.env,telegram=null}={}){
    if(['POST','PUT','DELETE'].includes(req.method)&&(!origin||!allowed.has(origin)))throw new HttpError(403,'Для записи требуется разрешённый Origin');
    if(url.pathname==='/api/session'&&req.method==='POST'){
     limit(req,'session',12);const data=await body(req);if(!data||typeof data!=='object'||Array.isArray(data)||Object.keys(data).some(k=>k!=='initData'))throw new HttpError(422,'Недопустимые данные входа');
-    const currentMode=await mode();let identity=null;if(data.initData){identity=validateInitData(data.initData,env.BOT_TOKEN);}else if(currentMode==='live')throw new HttpError(401,'Откройте приложение через Telegram');
+    const currentMode=await mode();let identity=null;if(data.initData){identity=validateInitData(data.initData,env.BOT_TOKEN);}else if(currentMode==='live'||env.ORDER_INTAKE_ENABLED==='true')throw new HttpError(401,'Откройте приложение через Telegram');
     return send(201,await store.authenticate(identity,(req.headers.authorization||'').replace(/^Bearer /,'')));
    }
    const bearer=(req.headers.authorization||'').replace(/^Bearer /,'');const user=await store.session(bearer);
@@ -32,11 +32,11 @@ function createApp({store=null,prices=null,env=process.env,telegram=null}={}){
    if(url.pathname==='/api/profile'&&req.method==='PUT')return send(200,{profile:await store.profile(user,await body(req))});
    if(url.pathname==='/api/orders'&&req.method==='GET')return send(200,{orders:await store.list(user),serverNow:new Date().toISOString(),mode:await mode()});
    if(url.pathname==='/api/orders'&&req.method==='POST'){
-    limit(req,'orders',15);const currentMode=await mode();if(currentMode==='live'&&!user.telegram_id)throw new HttpError(401,'Нужен подтверждённый вход Telegram');const r=await store.createOrder(user,await body(req),req.headers['idempotency-key'],currentMode);if(currentMode==='live')void tg.drain().catch(()=>{});return send(r.replayed?200:201,{...r,serverNow:new Date().toISOString(),mode:currentMode});
+    limit(req,'orders',15);const currentMode=await mode();if(currentMode==='unavailable'||(currentMode!=='live'&&env.ALLOW_TEST_ACTIONS!=='true'))throw new HttpError(503,'Приём заявок временно недоступен. Попробуйте позже.');if(currentMode==='live'&&!user.telegram_id)throw new HttpError(401,'Нужен подтверждённый вход Telegram');const r=await store.createOrder(user,await body(req),req.headers['idempotency-key'],currentMode);if(currentMode==='live')void tg.drain().catch(()=>{});return send(r.replayed?200:201,{...r,serverNow:new Date().toISOString(),mode:currentMode});
    }
    const match=/^\/api\/orders\/([a-f\d]{8}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{12})(?:\/(cancel|simulate))?$/i.exec(url.pathname);
    if(match){if(!match[2]&&req.method==='GET')return send(200,{order:await store.get(user,match[1]),serverNow:new Date().toISOString()});
-    if(req.method==='POST'&&match[2]){const data=await body(req);let order;if(match[2]==='cancel')order=await store.change(match[1],'cancelled','client',{ownerId:user.id});else{if(await mode()!=='server_test')throw new HttpError(403,'Тестовые переходы отключены');if(!['confirmed','rejected'].includes(data.status))throw new HttpError(422,'Недопустимый статус');order=await store.change(match[1],data.status,'test-client',{ownerId:user.id,testOnly:true});}return send(200,{order,serverNow:new Date().toISOString()});}
+    if(req.method==='POST'&&match[2]){const data=await body(req);let order;if(match[2]==='cancel')order=await store.change(match[1],'cancelled','client',{ownerId:user.id});else{if(env.ALLOW_TEST_ACTIONS!=='true'||!isManager||await mode()!=='server_test')throw new HttpError(403,'Тестовые переходы отключены');if(!['confirmed','rejected'].includes(data.status))throw new HttpError(422,'Недопустимый статус');order=await store.change(match[1],data.status,'test-client',{ownerId:user.id,testOnly:true});}return send(200,{order,serverNow:new Date().toISOString()});}
    }
    throw new HttpError(404,'Не найдено');
   }catch(e){if(res.headersSent)return res.end();if(e instanceof HttpError)return send(e.status,{error:e.message,code:e.code});console.error('request_failed',{code:'internal_error'});send(503,{error:'Сервис временно недоступен. Данные заявки остаются в форме.',code:'service_unavailable'});}

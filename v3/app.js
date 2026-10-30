@@ -187,6 +187,7 @@
   connecting=true;dropPrivate();let attemptProof='';remote.error='Подключаемся…';modeUI();
   try{
    const config=await request('/api/config',{anonymous:true});remote.config=config;remote.mode=config.mode;syncClock(config.serverNow);
+   if(config.mode==='unavailable')throw Error('Приём заявок временно недоступен. Попробуйте позже.');
    if(!config.database)throw Error('Приём заявок временно недоступен. Попробуйте позже.');
    const initData=config.telegramConfigured?currentInitData():'';attemptProof=initData;
    const candidate=sessionStorage.getItem(SESSION_KEY)||localStorage.getItem(SESSION_KEY)||'';if(config.mode==='live'||config.telegramConfigured)localStorage.removeItem(SESSION_KEY);
