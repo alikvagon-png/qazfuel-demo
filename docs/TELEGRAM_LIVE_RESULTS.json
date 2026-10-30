@@ -1,0 +1,18 @@
+{
+  "checkedAt": "2026-10-30T12:29:38.407316+00:00",
+  "api": "https://qazfuel-v3-api.onrender.com",
+  "mode": "live",
+  "database": true,
+  "telegramConfigured": true,
+  "managerBound": true,
+  "managerChecks": {
+    "delivered": 2,
+    "confirmPassed": true,
+    "rejectPassed": true
+  },
+  "databaseExpiresAt": "2026-11-29T11:07:38.400926Z",
+  "managerIdentityVerifiedFromTelegram": true,
+  "testOrdersClearlyMarked": true,
+  "webhookPendingUpdates": 0,
+  "webhookLastError": null
+}

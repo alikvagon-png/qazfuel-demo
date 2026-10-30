@@ -1,0 +1,24 @@
+{
+  "checkedAt": "2026-10-30T12:30:55.974Z",
+  "url": "https://qazfuel-v3-preview.onrender.com/",
+  "engine": "WebKit",
+  "widths": [
+    320,
+    390,
+    430,
+    768
+  ],
+  "checks": 44,
+  "status": "passed",
+  "realManagerChecks": {
+    "delivered": 2,
+    "confirmPassed": true,
+    "rejectPassed": true
+  },
+  "accessControls": {
+    "anonymous": 401,
+    "forged": 401,
+    "history": 401
+  },
+  "errors": []
+}

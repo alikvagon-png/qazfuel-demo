@@ -5,7 +5,9 @@
     "core": "node --test core.test.cjs",
     "e2e": "node e2e.cjs",
     "stage2": "node stage2.e2e.cjs",
-    "public-smoke": "node public-smoke.cjs"
+    "public-smoke": "node live-smoke.cjs",
+    "live-smoke": "node live-smoke.cjs",
+    "server-test-smoke": "node public-smoke.cjs"
   },
   "devDependencies": {
     "playwright": "1.62.1"
