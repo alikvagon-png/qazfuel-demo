@@ -2,7 +2,7 @@
 const R=require('./rosstat');
 const REGIONS={moscow:'Москва',moscow_oblast:'Москва'};
 class Prices{
- constructor({store=null,fetcher=fetch}={}){this.store=store;this.fetcher=fetcher;this.busy=false;}
+ constructor({store=null,fetcher=require('./rosstat-http').fetchOfficial}={}){this.store=store;this.fetcher=fetcher;this.busy=false;}
  async refresh(force=false){if(!this.store||this.busy)return;this.busy=true;let claimed=false;try{
  const claim=await this.store.pool.query("UPDATE qf_rosstat_state SET lease_until=now()+interval '5 minutes',last_attempt=now(),next_attempt=now()+interval '1 hour' WHERE singleton=true AND (lease_until IS NULL OR lease_until<now()) AND ($1::boolean OR next_attempt IS NULL OR next_attempt<=now()) RETURNING singleton",[force]);if(!claim.rowCount)return;claimed=true;
  let urls,catalogError=false;try{const index=await R.fetchHTML(R.INDEX,this.fetcher);urls=R.discover(index);if(!urls.length)throw Error('rosstat_no_publications_found');}catch{catalogError=true;const prior=await R.latest(this.store.pool);urls=[prior?.publication_url||'https://rosstat.gov.ru/storage/mediabank/169_28-10-2026.html'];console.error('rosstat_catalog_unavailable');}let newest=null,lastError;for(const url of urls){try{const data=R.parsePublication(await R.fetchHTML(url,this.fetcher),url);if(!newest||data.reportDate>newest.reportDate)newest=data;}catch(e){lastError=e;}if(newest)break;}
