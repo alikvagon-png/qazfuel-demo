@@ -23,6 +23,8 @@ class Store{
   if(!/^[a-zA-Z0-9_-]{16,100}$/.test(key||''))throw new HttpError(422,'Отсутствует ключ защиты от повторной отправки');
   const data=normalizeOrder(input),digest=hash(canonical(data));
   return this.transaction(async c=>{
+   const prior=(await c.query('SELECT * FROM qf_orders WHERE owner_id=$1 AND idempotency_key=$2',[user.id,key])).rows[0];if(prior){if(prior.payload_hash!==digest)throw new HttpError(409,'Ключ повторной отправки уже использован с другими данными');return {order:this.serialize(prior),replayed:true};}
+   if(data.kind==='truck'){await c.query("SELECT pg_advisory_xact_lock(7303)");const setting=(await c.query('SELECT value FROM qf_settings WHERE key=$1',['point:'+data.pointId])).rows[0];if(setting?.value?.closed)throw new HttpError(409,'Точка временно закрыта. Выберите другую.');}
    const r=await c.query("INSERT INTO qf_orders(owner_id,kind,payload,expires_at,idempotency_key,payload_hash,mode) VALUES($1,$2,$3,CASE WHEN $2='truck' THEN now()+interval '24 hours' ELSE NULL END,$4,$5,$6) ON CONFLICT(owner_id,idempotency_key) DO NOTHING RETURNING *",[user.id,data.kind,JSON.stringify(data),key,digest,mode]);
    if(!r.rowCount){const old=(await c.query('SELECT * FROM qf_orders WHERE owner_id=$1 AND idempotency_key=$2',[user.id,key])).rows[0];if(old.payload_hash!==digest)throw new HttpError(409,'Ключ повторной отправки уже использован с другими данными');return {order:this.serialize(old),replayed:true};}
    const o=r.rows[0];await c.query("INSERT INTO qf_order_events(order_id,status,actor) VALUES($1,'pending','client')",[o.id]);
@@ -33,13 +35,14 @@ class Store{
  async list(user){return this.transaction(async c=>{await this.expire(c);const r=await c.query('SELECT o.*,b.state AS notification FROM qf_orders o LEFT JOIN qf_outbox b ON b.order_id=o.id WHERE owner_id=$1 ORDER BY o.created_at DESC LIMIT 100',[user.id]);return r.rows.map(r=>this.serialize(r));});}
  async get(user,id){return this.transaction(async c=>{await this.expire(c);const r=await c.query('SELECT o.*,b.state AS notification FROM qf_orders o LEFT JOIN qf_outbox b ON b.order_id=o.id WHERE o.owner_id=$1 AND o.id=$2',[user.id,id]);if(!r.rowCount)throw new HttpError(404,'Заявка не найдена');const events=(await c.query('SELECT status,actor,created_at FROM qf_order_events WHERE order_id=$1 ORDER BY id',[id])).rows;return {...this.serialize(r.rows[0]),events:events.map(e=>({status:e.status,actor:e.actor,createdAt:new Date(e.created_at).toISOString()}))};});}
  async change(id,status,actor,{ownerId=null,testOnly=false,liveOnly=false}={}){
-  if(!['confirmed','rejected','cancelled'].includes(status))throw new HttpError(422,'Недопустимый статус');
+  if(!['confirmed','rejected','cancelled','completed'].includes(status))throw new HttpError(422,'Недопустимый статус');
   return this.transaction(async c=>{
    await this.expire(c);const r=await c.query('SELECT * FROM qf_orders WHERE id=$1 FOR UPDATE',[id]);const o=r.rows[0];
    if(!o||(ownerId&&o.owner_id!==ownerId)||(testOnly&&o.mode!=='server_test')||(liveOnly&&o.mode!=='live'))throw new HttpError(404,'Заявка не найдена');
    if(o.mode==='server_test'&&o.idempotency_key.startsWith('telegram_verification_')){const expected=o.idempotency_key.includes('_confirm_')?'confirmed':'rejected';if(status!==expected||actor!=='manager:'+(await this.manager())?.telegram_id)throw new HttpError(422,expected==='confirmed'?'Служебная проверка: нажмите «Подтвердить» в Telegram':'Служебная проверка: нажмите «Отклонить» в Telegram');}
    if(o.status===status)return this.serialize(o);
-   if((status==='cancelled'&&!['pending','confirmed'].includes(o.status))||(status!=='cancelled'&&o.status!=='pending'))throw new HttpError(409,o.status==='expired'?'Срок заявки истёк':'Статус уже изменён');
+   if(status==='completed'&&o.status!=='confirmed')throw new HttpError(409,'Завершить можно только подтверждённую заявку');
+   if((status==='cancelled'&&!['pending','confirmed'].includes(o.status))||(!['cancelled','completed'].includes(status)&&o.status!=='pending'))throw new HttpError(409,o.status==='expired'?'Срок заявки истёк':'Статус уже изменён');
    const updated=await c.query("UPDATE qf_orders SET status=$2,updated_at=clock_timestamp() WHERE id=$1 AND (expires_at IS NULL OR expires_at>clock_timestamp()) RETURNING *",[id,status]);
    if(!updated.rowCount)throw new HttpError(409,'Срок заявки истёк');await c.query('INSERT INTO qf_order_events(order_id,status,actor) VALUES($1,$2,$3)',[id,status,actor]);return this.serialize(updated.rows[0]);
   });
@@ -64,4 +67,5 @@ class Store{
  async botProfileStatus(){const row=(await this.pool.query('SELECT applied_at FROM qf_bot_profiles ORDER BY applied_at DESC LIMIT 1')).rows[0];return {applied:!!row,appliedAt:row?new Date(row.applied_at).toISOString():null};}
  async manager(){return (await this.pool.query('SELECT * FROM qf_manager WHERE singleton=true')).rows[0]||null;}
 }
+require('./operations').extend(Store);
 module.exports={Store};

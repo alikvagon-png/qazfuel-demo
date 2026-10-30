@@ -24,3 +24,20 @@ END $$;
 DROP TRIGGER IF EXISTS qf_order_origin ON qf_orders;
 CREATE TRIGGER qf_order_origin BEFORE UPDATE ON qf_orders FOR EACH ROW EXECUTE FUNCTION qf_keep_order_origin();
 CREATE TABLE IF NOT EXISTS qf_bot_profiles (bot_id bigint PRIMARY KEY,profile_hash text NOT NULL,applied_at timestamptz NOT NULL DEFAULT now());
+
+ALTER TABLE qf_orders DROP CONSTRAINT IF EXISTS qf_orders_status_check;
+ALTER TABLE qf_orders ADD CONSTRAINT qf_orders_status_check CHECK(status IN ('pending','confirmed','rejected','expired','cancelled','completed'));
+CREATE TABLE IF NOT EXISTS qf_settings(key text PRIMARY KEY,value jsonb NOT NULL,updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS qf_customer_messages(event_id bigint PRIMARY KEY REFERENCES qf_order_events(id),state text NOT NULL DEFAULT 'pending',attempts integer NOT NULL DEFAULT 0,next_attempt_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS qf_reminders(order_id uuid PRIMARY KEY REFERENCES qf_orders(id),sent_at timestamptz NOT NULL DEFAULT now());
+CREATE OR REPLACE FUNCTION qf_enqueue_customer_status() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+ IF NEW.status IN ('confirmed','rejected','cancelled','expired','completed') THEN
+ INSERT INTO qf_customer_messages(event_id) SELECT NEW.id FROM qf_orders o JOIN qf_users u ON u.id=o.owner_id WHERE o.id=NEW.order_id AND o.mode='live' AND u.telegram_id IS NOT NULL ON CONFLICT DO NOTHING;
+ END IF;
+ RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS qf_customer_status ON qf_order_events;
+CREATE TRIGGER qf_customer_status AFTER INSERT ON qf_order_events FOR EACH ROW EXECUTE FUNCTION qf_enqueue_customer_status();
+CREATE TABLE IF NOT EXISTS qf_operations_install(singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),installed_at timestamptz NOT NULL DEFAULT now());
+INSERT INTO qf_operations_install(singleton) VALUES(true) ON CONFLICT DO NOTHING;
