@@ -4,6 +4,8 @@
 
 - [Открыть V3](https://qazfuel-v3-preview.onrender.com/)
 - [API health](https://qazfuel-v3-api.onrender.com/health)
+- [Цены Росстата: текущая интеграция](docs/ROSSTAT_PRICING.md)
+- [Реальная проверка цен и сообщения менеджеру](docs/ROSSTAT_LIVE_RESULTS.json)
 - [Отчёт этапа 2](docs/STAGE2_REPORT.md)
 - [Проверка источников цен](docs/STAGE2_PRICES.md)
 - [Сервер и безопасное подключение Telegram](docs/STAGE2_SETUP.md)

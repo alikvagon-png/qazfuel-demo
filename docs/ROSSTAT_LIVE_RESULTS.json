@@ -1,0 +1,111 @@
+{
+  "checkedAt": "2026-10-30T15:02:30.344Z",
+  "checks": 45,
+  "status": "passed",
+  "errors": [],
+  "prices": {
+    "region": "Москва",
+    "regionId": "moscow",
+    "appliesTo": "Все 9 точек и доставка по Москве и Московской области",
+    "discount": 3,
+    "currency": "RUB",
+    "unit": "liter",
+    "checkedAt": "2026-10-30T15:02:14.328Z",
+    "items": [
+      {
+        "fuel": "АИ-95",
+        "available": true,
+        "marketPrice": 76.02,
+        "price": 73.02,
+        "marketPriceKopecks": 7602,
+        "unitPriceKopecks": 7302,
+        "discount": 3,
+        "region": "Москва",
+        "currency": "RUB",
+        "unit": "liter",
+        "source": "Росстат",
+        "sourceUrl": "https://rosstat.gov.ru/storage/mediabank/169_28-10-2026.html",
+        "reportDate": "2026-10-26",
+        "observedAt": "2026-10-26T00:00:00Z",
+        "version": "rosstat-moscow-minus-300-v1",
+        "stale": false,
+        "importMethod": "automatic"
+      },
+      {
+        "fuel": "АИ-98",
+        "available": true,
+        "marketPrice": 102.17,
+        "price": 99.17,
+        "marketPriceKopecks": 10217,
+        "unitPriceKopecks": 9917,
+        "discount": 3,
+        "region": "Москва",
+        "currency": "RUB",
+        "unit": "liter",
+        "source": "Росстат",
+        "sourceUrl": "https://rosstat.gov.ru/storage/mediabank/169_28-10-2026.html",
+        "reportDate": "2026-10-26",
+        "observedAt": "2026-10-26T00:00:00Z",
+        "version": "rosstat-moscow-minus-300-v1",
+        "stale": false,
+        "importMethod": "automatic"
+      },
+      {
+        "fuel": "ДТ",
+        "available": true,
+        "marketPrice": 81.71,
+        "price": 78.71,
+        "marketPriceKopecks": 8171,
+        "unitPriceKopecks": 7871,
+        "discount": 3,
+        "region": "Москва",
+        "currency": "RUB",
+        "unit": "liter",
+        "source": "Росстат",
+        "sourceUrl": "https://rosstat.gov.ru/storage/mediabank/169_28-10-2026.html",
+        "reportDate": "2026-10-26",
+        "observedAt": "2026-10-26T00:00:00Z",
+        "version": "rosstat-moscow-minus-300-v1",
+        "stale": false,
+        "importMethod": "automatic"
+      }
+    ],
+    "sources": [
+      {
+        "name": "Росстат",
+        "url": "https://rosstat.gov.ru/storage/mediabank/169_28-10-2026.html",
+        "sourceUpdatedAt": "2026-10-26",
+        "reachable": true
+      }
+    ],
+    "import": {
+      "last_attempt": "2026-10-30T15:02:01.214Z",
+      "last_success": "2026-10-30T15:02:10.927Z",
+      "last_error": null,
+      "next_attempt": "2026-10-30T21:02:10.932Z"
+    },
+    "cacheSeconds": 21600,
+    "notice": "Средняя цена по данным Росстата за указанную дату. Итоговая стоимость подтверждается менеджером."
+  },
+  "managerPriceCheck": {
+    "created": true,
+    "delivered": true,
+    "pricing": {
+      "stale": false,
+      "region": "Москва",
+      "source": "Росстат",
+      "quoteId": "1",
+      "version": "rosstat-moscow-minus-300-v1",
+      "currency": "RUB",
+      "available": true,
+      "sourceUrl": "https://rosstat.gov.ru/storage/mediabank/169_28-10-2026.html",
+      "reportDate": "2026-10-26",
+      "preliminary": true,
+      "importMethod": "automatic",
+      "totalKopecks": 787100,
+      "discountKopecks": 300,
+      "unitPriceKopecks": 7871,
+      "marketPriceKopecks": 8171
+    }
+  }
+}
