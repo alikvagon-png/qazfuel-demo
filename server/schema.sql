@@ -23,3 +23,4 @@ BEGIN
 END $$;
 DROP TRIGGER IF EXISTS qf_order_origin ON qf_orders;
 CREATE TRIGGER qf_order_origin BEFORE UPDATE ON qf_orders FOR EACH ROW EXECUTE FUNCTION qf_keep_order_origin();
+CREATE TABLE IF NOT EXISTS qf_bot_profiles (bot_id bigint PRIMARY KEY,profile_hash text NOT NULL,applied_at timestamptz NOT NULL DEFAULT now());

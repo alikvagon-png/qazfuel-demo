@@ -61,6 +61,7 @@ class Store{
   const rows=(await this.pool.query("SELECT o.status,o.idempotency_key,b.state AS notification,EXISTS(SELECT 1 FROM qf_order_events e WHERE e.order_id=o.id AND e.status=o.status AND e.actor='manager:'||m.telegram_id::text) AS manager_decision FROM qf_manager m JOIN qf_users u ON u.telegram_id=m.telegram_id JOIN qf_orders o ON o.owner_id=u.id JOIN qf_outbox b ON b.order_id=o.id WHERE o.mode='server_test' AND o.idempotency_key IN ('telegram_verification_confirm_v1','telegram_verification_reject_v1')")).rows;
   return {delivered:rows.filter(r=>r.notification==='sent').length,confirmPassed:rows.some(r=>r.idempotency_key==='telegram_verification_confirm_v1'&&r.status==='confirmed'&&r.manager_decision),rejectPassed:rows.some(r=>r.idempotency_key==='telegram_verification_reject_v1'&&r.status==='rejected'&&r.manager_decision)};
  }
+ async botProfileStatus(){const row=(await this.pool.query('SELECT applied_at FROM qf_bot_profiles ORDER BY applied_at DESC LIMIT 1')).rows[0];return {applied:!!row,appliedAt:row?new Date(row.applied_at).toISOString():null};}
  async manager(){return (await this.pool.query('SELECT * FROM qf_manager WHERE singleton=true')).rows[0]||null;}
 }
 module.exports={Store};

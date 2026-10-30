@@ -14,7 +14,7 @@ function createApp({store=null,prices=new Prices(),env=process.env,telegram=null
    if(req.method==='OPTIONS')return send(204,{});
    const url=new URL(req.url,'http://localhost');limit(req,'all',120);
    if(url.pathname==='/health'){if(store)await store.pool.query('SELECT 1');return send(200,{ok:true,database:!!store,service:'qazfuel-v3-api'});}
-   if(url.pathname==='/api/config'&&req.method==='GET')return send(200,{mode:await mode(),database:!!store,telegramConfigured:!!tg?.configured(),managerBound:store?!!await store.manager():false,managerChecks:store?await store.verificationStatus():null,discount:3,serverNow:new Date().toISOString(),databaseExpiresAt:env.DATABASE_EXPIRES_AT||null});
+   if(url.pathname==='/api/config'&&req.method==='GET')return send(200,{mode:await mode(),database:!!store,telegramConfigured:!!tg?.configured(),managerBound:store?!!await store.manager():false,managerChecks:store?await store.verificationStatus():null,botPresentation:store?await store.botProfileStatus():null,discount:3,serverNow:new Date().toISOString(),databaseExpiresAt:env.DATABASE_EXPIRES_AT||null});
    if(url.pathname==='/api/prices'&&req.method==='GET'){const region=url.searchParams.get('region')||'moscow';if(!REGIONS[region])throw new HttpError(422,'Неизвестный регион');return send(200,await prices.get(region));}
    if(url.pathname==='/telegram/webhook'&&req.method==='POST'){if(!store||!tg)throw new HttpError(503,'Telegram отключён');return send(200,await tg.handle(await body(req),req.headers['x-telegram-bot-api-secret-token']));}
    if(!store)throw new HttpError(503,'Серверное хранилище ещё не подключено','database_unconfigured');
@@ -41,6 +41,7 @@ function createApp({store=null,prices=new Prices(),env=process.env,telegram=null
 }
 async function main(){let pool,store=null;if(process.env.DATABASE_URL){pool=new Pool({connectionString:process.env.DATABASE_URL,max:5,connectionTimeoutMillis:10000,statement_timeout:10000,ssl:process.env.DATABASE_SSL==='true'?{rejectUnauthorized:true}:false});store=new Store(pool);await store.migrate();}
  const {server,telegram}=createApp({store});server.listen(Number(process.env.PORT)||10000,'0.0.0.0',()=>console.log('qazfuel_api_ready',{database:!!store}));
+ const {syncProfile}=require('./bot-profile');if(telegram)void syncProfile(telegram).then(r=>console.log('bot_profile_ready',{configured:r.configured,cached:r.cached})).catch(e=>console.error('bot_profile_failed',{code:e.message.startsWith('telegram_')||e.message==='unexpected_bot_identity'?e.message:'profile_setup_failed'}));
  const interval=setInterval(()=>{if(store)void store.transaction(c=>store.expire(c)).catch(()=>console.error('expiry_failed'));if(telegram)void telegram.drain().catch(()=>console.error('notification_retry_failed'));},60000);interval.unref();
  process.on('SIGTERM',()=>{clearInterval(interval);server.close(()=>{pool?.end().finally(()=>process.exit(0));if(!pool)process.exit(0);});setTimeout(()=>process.exit(1),25000).unref();});
 }

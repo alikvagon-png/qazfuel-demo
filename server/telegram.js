@@ -1,5 +1,6 @@
 'use strict';
 const {safeEqual,hash,HttpError,C}=require('./security');
+const UI=require('./bot-ui');
 class Telegram{
  constructor(store,env=process.env,fetcher=fetch){this.store=store;this.env=env;this.fetcher=fetcher;this.busy=false;}
  configured(){return !!(this.env.BOT_TOKEN&&this.env.TELEGRAM_WEBHOOK_SECRET&&/^[1-9]\d{0,15}$/.test(this.env.MANAGER_TELEGRAM_ID||'')&&this.env.WEBHOOK_ENABLED==='true');}
@@ -17,15 +18,21 @@ class Telegram{
    const bound=await this.store.pool.query('INSERT INTO qf_manager(singleton,telegram_id,chat_id) VALUES(true,$1,$2) ON CONFLICT(singleton) DO NOTHING RETURNING singleton',[m.from.id,m.chat.id]);if(bound.rowCount&&this.env.VERIFY_ON_BIND==='true'){await this.store.createVerificationOrders(m.from.id);void this.drain().catch(()=>{});}await this.call('sendMessage',{chat_id:m.chat.id,text:'QAZFUEL: ID менеджера подтверждён. Этот чат привязан для заявок.'});return {ok:true};
   }
   if(m?.chat?.type==='private'&&Number.isSafeInteger(m.from?.id)&&!m.from.is_bot){
-   const command=typeof m.text==='string'?m.text.split(/\s/)[0].split('@')[0]:'';
-   if(['/start','/app','/help'].includes(command)){
-    const live=this.env.ORDER_INTAKE_ENABLED==='true'&&await this.ready();
-    await this.call('sendMessage',{chat_id:m.chat.id,text:live?'QAZFUEL — дизель на трассе и доставка топлива по Москве и области. Откройте приложение и оформите заявку. После отправки ожидайте подтверждения менеджера. Срок брони на трассе — 24 часа с создания заявки.':'QAZFUEL V3 — тестовый запуск. Приложение сохраняет тестовые заявки; реальная бронь и отправка менеджеру пока не включены.',reply_markup:{inline_keyboard:[[{text:'Открыть QAZFUEL V3',web_app:{url:'https://qazfuel-v3-preview.onrender.com/'}}],[{text:'Связаться с менеджером',url:'https://t.me/qazfuel'}]]}});
-   }
+   const live=this.env.ORDER_INTAKE_ENABLED==='true'&&await this.ready();
+   await this.call('sendMessage',{chat_id:m.chat.id,...UI.commandView(m.text,live),link_preview_options:{is_disabled:true}});
    return {ok:true};
   }
   if(!update.callback_query)return {ok:true};
-  const q=update.callback_query,manager=await this.store.manager();
+  const q=update.callback_query;
+  if(typeof q?.data==='string'&&q.data.startsWith('info:')){
+   if(q.message?.chat?.type!=='private'||!Number.isSafeInteger(q.from?.id)||String(q.from.id)!==String(q.message.chat.id))throw new HttpError(403,'Откройте меню в личном чате с ботом');
+   const topic=q.data.slice(5),live=this.env.ORDER_INTAKE_ENABLED==='true'&&await this.ready();
+   await this.call('answerCallbackQuery',{callback_query_id:q.id}).catch(()=>{});
+   if(topic==='home')await this.call('sendMessage',{chat_id:q.message.chat.id,...UI.welcome(live)});
+   else await this.call('sendMessage',{chat_id:q.message.chat.id,...UI.view(topic,live),link_preview_options:{is_disabled:true}});
+   return {ok:true,menu:topic};
+  }
+  const manager=await this.store.manager();
   if(!q||!manager||String(q.from?.id)!==String(manager.telegram_id)||String(q.message?.chat?.id)!==String(manager.chat_id))throw new HttpError(403,'Доступ менеджера не подтверждён');
   const match=/^(confirm|reject):([a-f\d-]{36})$/i.exec(q.data||'');if(!match)throw new HttpError(400,'Неизвестное действие');
   try{const o=await this.store.change(match[2],match[1]==='confirm'?'confirmed':'rejected','manager:'+manager.telegram_id,{});await this.call('answerCallbackQuery',{callback_query_id:q.id,text:(o.mode==='server_test'?'ТЕСТ: ':'')+(match[1]==='confirm'?'Заявка подтверждена':'Заявка отклонена')});await this.call('editMessageReplyMarkup',{chat_id:String(manager.chat_id),message_id:q.message.message_id,reply_markup:{inline_keyboard:[]}});return {ok:true,status:o.status};}catch(e){if(e instanceof HttpError){await this.call('answerCallbackQuery',{callback_query_id:q.id,text:e.message,show_alert:true});return {ok:true,changed:false};}throw e;}

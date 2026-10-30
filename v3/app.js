@@ -3,6 +3,7 @@
  'use strict';
  const C=window.QFCore,$=id=>document.getElementById(id),KEY='qazfuel_v3_state',DRAFT_KEY='qazfuel_v3_drafts';
  let state={version:3,orders:[],truck:null},current='home',filter='all',selected=C.points[0].id,map=null,markers=[],pending=null,submitting=false,toastTimer,geo=null,fuel='АИ-95',fullTank=false,lastSubmit=0,draftTimer,storageBroken=false,previousFocus=null;
+ const launchInitData=new URLSearchParams(location.hash.slice(1)).get('tgWebAppData')||'';
  const API=window.QF_CONFIG?.apiBase||'',SESSION_KEY='qazfuel_v3_session',RETRY_KEY='qazfuel_v3_retry';
  let remote={mode:'local_demo',ready:false,orders:[],token:'',config:null,error:''},clockOffset=0,priceRequest=0,connecting=false;
  const allOrders=()=>[...remote.orders,...state.orders],findOrder=id=>allOrders().find(o=>o.id===id),orderStatus=o=>C.status(o,Date.now()+clockOffset);
@@ -179,8 +180,8 @@
    const config=await request('/api/config',{anonymous:true});remote.config=config;remote.mode=config.mode;syncClock(config.serverNow);
    if(!config.database)throw Error('Тестовый сервер доступен, но база ещё не подключена. Отправка заявок отключена.');
    remote.token=localStorage.getItem(SESSION_KEY)||'';
-   if(remote.token){try{const existing=await request('/api/profile');if(!existing.telegramVerified&&(config.mode==='live'||(config.telegramConfigured&&window.Telegram?.WebApp?.initData)))remote.token='';}catch(e){if(remote.ready===false&&(e.message.includes('Сеанс')||e.message.includes('сеанс')))remote.token='';else throw e;}}
-   if(!remote.token){const initData=config.telegramConfigured?(window.Telegram?.WebApp?.initData||''):'';const session=await request('/api/session',{method:'POST',body:initData?{initData}:{},anonymous:true});remote.token=session.token;localStorage.setItem(SESSION_KEY,session.token);}
+   if(remote.token){try{const existing=await request('/api/profile');if(!existing.telegramVerified&&(config.mode==='live'||(config.telegramConfigured&&(window.Telegram?.WebApp?.initData||launchInitData))))remote.token='';}catch(e){if(remote.ready===false&&(e.message.includes('Сеанс')||e.message.includes('сеанс')))remote.token='';else throw e;}}
+   if(!remote.token){const initData=config.telegramConfigured?(window.Telegram?.WebApp?.initData||launchInitData):'';const session=await request('/api/session',{method:'POST',body:initData?{initData}:{},anonymous:true});remote.token=session.token;localStorage.setItem(SESSION_KEY,session.token);}
    const {profile,telegramVerified}=await request('/api/profile');remote.telegramVerified=telegramVerified;if(!sessionStorage.getItem(DRAFT_KEY)){if(profile.truck){$('truckBrand').value=profile.truck.brand;$('truckPlate').value=profile.truck.plate;}if(profile.phone)$('deliveryPhone').value=profile.phone;if(profile.address)$('deliveryAddress').value=profile.address;}
    remote.ready=true;remote.error='';await refreshRemote();modeUI();
   }catch(e){remote.ready=false;remote.error=e.message;modeUI();}
@@ -221,10 +222,10 @@
  $('pointSelect').addEventListener('change',()=>{choosePoint($('pointSelect').value);saveDraft();});$('truckLiters').addEventListener('input',()=>{updateTruck();saveDraft();});$('deliveryLiters').addEventListener('input',()=>{fullTank=false;updateDelivery();saveDraft();});$('fullTank').addEventListener('click',()=>{fullTank=!fullTank;updateDelivery();saveDraft();});$('locateMe').addEventListener('click',locate);$('fitMap').addEventListener('click',fitMap);
  document.querySelectorAll('input,textarea').forEach(input=>input.addEventListener('input',saveDraft));
  $('orderDialog').addEventListener('cancel',e=>{e.preventDefault();closeDialog();});$('orderDialog').addEventListener('close',()=>{document.body.classList.remove('dialog-open');delete $('orderDialog').dataset.orderId;});
- window.addEventListener('popstate',()=>{if($('orderDialog').open)closeDialog();go(location.hash.slice(1),{history:false});});
+ window.addEventListener('popstate',()=>{if($('orderDialog').open)closeDialog();go(C.initialScreen(location.hash,location.search),{history:false});});
  window.addEventListener('storage',event=>{if(event.key===KEY){storageBroken=false;readState();if(!storageBroken)$('storageBanner').hidden=true;renderOrders();}});
  window.addEventListener('resize',updateViewport);window.visualViewport?.addEventListener('resize',updateViewport);
  if(window.ResizeObserver)new ResizeObserver(()=>{if(current==='delivery')document.documentElement.style.setProperty('--delivery-volume-height',$('deliveryVolumePanel').getBoundingClientRect().height+'px');}).observe($('deliveryVolumePanel'));
- $('telegramSdk')?.addEventListener('load',telegram);
- readState();renderPoints();restoreDraft();choosePoint(selected);updateTruck();updateDelivery();updateGeoStatus();renderOrders();telegram();go(location.hash.slice(1)||'home',{history:false,focus:false});setInterval(tick,1000);bootstrap();setInterval(()=>{if(remote.ready&&!document.hidden)refreshRemote();},20000);document.addEventListener('visibilitychange',()=>{if(!document.hidden&&remote.ready)refreshRemote();});
+ $('telegramSdk')?.addEventListener('load',()=>{telegram();if(API&&!remote.ready&&window.Telegram?.WebApp?.initData)bootstrap();});
+ readState();renderPoints();restoreDraft();choosePoint(selected);updateTruck();updateDelivery();updateGeoStatus();renderOrders();telegram();go(C.initialScreen(location.hash,location.search),{history:false,focus:false});setInterval(tick,1000);bootstrap();setInterval(()=>{if(remote.ready&&!document.hidden)refreshRemote();},20000);document.addEventListener('visibilitychange',()=>{if(!document.hidden&&remote.ready)refreshRemote();});
 })();
