@@ -4,10 +4,10 @@
  const C=window.QFCore,$=id=>document.getElementById(id),KEY='qazfuel_v3_state',DRAFT_KEY='qazfuel_v3_drafts';
  let state={version:3,orders:[],truck:null},current='home',filter='all',selected=C.points[0].id,map=null,markers=[],pending=null,submitting=false,toastTimer,geo=null,fuel='АИ-95',fullTank=false,lastSubmit=0,draftTimer,storageBroken=false,previousFocus=null;
  const API=window.QF_CONFIG?.apiBase||'',SESSION_KEY='qazfuel_v3_session',RETRY_KEY='qazfuel_v3_retry';
- let remote={mode:'local_demo',ready:false,orders:[],token:'',config:null,error:''},clockOffset=0,priceRequest=0;
+ let remote={mode:'local_demo',ready:false,orders:[],token:'',config:null,error:''},clockOffset=0,priceRequest=0,connecting=false;
  const allOrders=()=>[...remote.orders,...state.orders],findOrder=id=>allOrders().find(o=>o.id===id),orderStatus=o=>C.status(o,Date.now()+clockOffset);
- const modeLabel=()=>remote.ready?(remote.mode==='live'?'ЗАЯВКА':'СЕРВЕРНЫЙ ТЕСТ'):'ЛОКАЛЬНОЕ ДЕМО';
- const modeNote=()=>remote.ready?(remote.mode==='live'?'Заявка сохранится на сервере и будет отправлена менеджеру. Подтверждение отобразится в истории.':'Заявка сохранится в тестовой базе на сервере. Менеджеру не отправится и реальную бронь не создаст.'):'Заявка сохранится только в этом браузере. Менеджеру не отправится и реальную бронь не создаст.';
+ const modeLabel=()=>remote.ready?(remote.mode==='live'?'ЗАЯВКА':'СЕРВЕРНЫЙ ТЕСТ'):API?(connecting?'ПОДКЛЮЧЕНИЕ К СЕРВЕРУ':'СЕРВЕР НЕДОСТУПЕН'):'ЛОКАЛЬНОЕ ДЕМО';
+ const modeNote=()=>API&&!remote.ready?'Приём заявок временно недоступен. Данные формы остаются на экране; подключитесь к серверу и повторите отправку.':remote.ready?(remote.mode==='live'?'Заявка сохранится на сервере и будет отправлена менеджеру. Подтверждение отобразится в истории.':'Заявка сохранится в тестовой базе на сервере. Менеджеру не отправится и реальную бронь не создаст.'):'Заявка сохранится только в этом браузере. Менеджеру не отправится и реальную бронь не создаст.';
  const when=value=>new Date(value).toLocaleString('ru-RU',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
  const point=id=>C.points.find(p=>p.id===id)||C.points[0];
  const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -158,14 +158,15 @@
  }
  function modeUI(){
   const text=modeNote();document.querySelector('.demo-badge').textContent=modeLabel()+' · V3';
-  $('serverNotice').hidden=!API;$('serverNotice').innerHTML=API?`<strong>${modeLabel()}</strong><br>${escape(remote.error||text)}${!remote.ready?'<button id="retryServer">Повторить подключение</button>':''}`:'';
+  $('serverNotice').hidden=!API;$('serverNotice').innerHTML=API?`<strong>${modeLabel()}</strong><br>${escape(remote.error||text)}${!remote.ready?`<button id="retryServer" ${connecting?'disabled':''}>${connecting?'Подключение…':'Повторить подключение'}</button>`:''}`:'';
   for(const id of ['home','orders']){const note=$(id).querySelector('.demo-note p');if(note)note.innerHTML=`<strong>${modeLabel()}</strong>${escape(text)}`;}
   document.querySelectorAll('.form-disclaimer').forEach(el=>el.textContent=text);
   const expiry=$('about').querySelector('.accordion div p');if(expiry)expiry.textContent='24 часа с первоначального создания заявки. Подтверждение не сдвигает срок. В серверном режиме срок и статус проверяются по часам сервера.';
  }
  async function bootstrap(){
+  if(connecting)return;
   if(!API){modeUI();loadPrices();return;}
-  remote.ready=false;remote.error='Подключаем тестовый сервер…';modeUI();
+  connecting=true;remote.ready=false;remote.error='Подключаем тестовый сервер…';modeUI();
   try{
    const config=await request('/api/config',{anonymous:true});remote.config=config;remote.mode=config.mode;syncClock(config.serverNow);
    if(!config.database)throw Error('Тестовый сервер доступен, но база ещё не подключена. Отправка заявок отключена.');
@@ -175,9 +176,9 @@
    const {profile}=await request('/api/profile');if(!sessionStorage.getItem(DRAFT_KEY)){if(profile.truck){$('truckBrand').value=profile.truck.brand;$('truckPlate').value=profile.truck.plate;}if(profile.phone)$('deliveryPhone').value=profile.phone;if(profile.address)$('deliveryAddress').value=profile.address;}
    remote.ready=true;remote.error='';await refreshRemote();modeUI();
   }catch(e){remote.ready=false;remote.error=e.message;modeUI();}
-  loadPrices();
+  connecting=false;modeUI();loadPrices();
  }
- async function refreshRemote(){try{const r=await request('/api/orders');remote.orders=r.orders;remote.mode=r.mode;syncClock(r.serverNow);remote.error='';renderOrders();modeUI();}catch(e){remote.error='Не удалось обновить историю: '+e.message;modeUI();}}
+ async function refreshRemote(){try{const r=await request('/api/orders');const active=$('orderDialog').dataset.orderId,before=findOrder(active),next=r.orders.find(o=>o.id===active);remote.orders=r.orders;if($('orderDialog').open&&before&&next&&(before.status!==next.status||before.notification!==next.notification))details(active);remote.mode=r.mode;syncClock(r.serverNow);remote.error='';renderOrders();modeUI();}catch(e){remote.error='Не удалось обновить историю: '+e.message;modeUI();}}
  async function refreshDetails(id){try{const r=await request('/api/orders/'+id);syncClock(r.serverNow);remote.orders=remote.orders.map(o=>o.id===id?r.order:o);if($('orderDialog').dataset.orderId!==id)return;const old=$('serverEvents');if(old)old.remove();$('dialogBody').insertAdjacentHTML('beforeend',`<div id="serverEvents"><p class="input-note">Полный номер: ${escape(id)}</p><h3>История статусов</h3>${(r.order.events||[]).map(e=>`<p class="input-note">${when(e.createdAt)} · ${escape(statuses[e.status]||e.status)} · ${e.actor==='test-client'?'тест':e.actor.startsWith('manager:')?'менеджер':'сервер / клиент'}</p>`).join('')}</div>`);}catch(e){if($('orderDialog').dataset.orderId===id)$('dialogError').textContent=e.message;}}
  async function loadPrices(){
   const seq=++priceRequest;const region=$('priceRegionSelect').value;$('priceFeedStatus').textContent='Проверяем источники…';$('refreshPrices').disabled=true;

@@ -1,1 +1,13 @@
-{"name":"qazfuel-v3-checks","private":true,"scripts":{"core":"node --test core.test.cjs","e2e":"node e2e.cjs"},"devDependencies":{"playwright":"1.62.1"}}
+{
+  "name": "qazfuel-v3-checks",
+  "private": true,
+  "scripts": {
+    "core": "node --test core.test.cjs",
+    "e2e": "node e2e.cjs",
+    "stage2": "node stage2.e2e.cjs",
+    "public-smoke": "node public-smoke.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

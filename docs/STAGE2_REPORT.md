@@ -32,3 +32,14 @@ No real Telegram message was delivered, no bot token was supplied, and no existi
 The free test PostgreSQL expires **2026-11-29**, has no managed backups and must not be treated as permanent commercial infrastructure. No paid resource was created. Free web service can sleep; forms and retry keys survive timeout.
 
 Production and main remain outside this release. Main SHA verified before release: 296ed4c660d686b70d390d20b028551bcc3186ce.
+
+## Published verification
+
+- Frontend and API reached Render **Live** for commit a9bb0bbfbf170bfeb5ca056e0fdbc53cf9ca58fa.
+- Public HTTPS WebKit smoke: **55 checks passed**, no JavaScript errors (STAGE2_PUBLIC_RESULTS.json), all nine point selections/routes/booking transfers, actual PostgreSQL test truck order, reload/history, rejection, actual price proxy for both regions, sticky volume and actual test delivery.
+- A test order created before the API redeploy was re-read afterwards with the same UUID, status and deadline, proving storage survives application replacement.
+- API HTTP health check is `/health`, including a database query. PostgreSQL public connections remain blocked.
+- A final small fix makes connection/unavailable notices accurately describe blocked submissions rather than suggesting a local fallback, prevents overlapping connection attempts, and refreshes an open server order dialog after a polled status change. Stage-2 WebKit regression was repeated after this change.
+
+Published preview: https://qazfuel-v3-preview.onrender.com/
+Source branch: https://github.com/alikvagon-png/qazfuel-demo/tree/qazfuel-v3
