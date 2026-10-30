@@ -1,0 +1,7 @@
+.env
+.env.*
+node_modules/
+.qa-output/
+playwright-report/
+test-results/
+.DS_Store

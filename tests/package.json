@@ -1,0 +1,1 @@
+{"name":"qazfuel-v3-checks","private":true,"scripts":{"core":"node --test core.test.cjs","e2e":"node e2e.cjs"},"devDependencies":{"playwright":"1.62.1"}}
