@@ -1,0 +1,71 @@
+{
+  "checkedAt": "2026-10-30T11:41:11.125328+00:00",
+  "api": "https://qazfuel-v3-api.onrender.com",
+  "checks": [
+    "Live API: PostgreSQL connected; server_test; Telegram disabled",
+    "Create test reservation in Render PostgreSQL",
+    "Real HTTP retry returns same order",
+    "Changed payload with same idempotency key rejected",
+    "Second guest cannot read first guest order",
+    "Second guest cannot confirm another order",
+    "Anonymous request cannot list orders",
+    "Test confirmation preserves original deadline",
+    "Live PostgreSQL deadline is exactly 24 hours",
+    "Server detail includes status audit history",
+    "Profile stored in PostgreSQL",
+    "Real sources have no eligible fresh regional prices; no invented values"
+  ],
+  "testOrderId": "03183ae8-bbf5-48eb-8b32-a5ea757f9471",
+  "prices": {
+    "region": "Москва",
+    "regionId": "moscow",
+    "discount": 3,
+    "currency": "RUB",
+    "unit": "liter",
+    "checkedAt": "2026-10-30T11:42:20.179Z",
+    "cacheSeconds": 3600,
+    "items": [
+      {
+        "fuel": "АИ-95",
+        "price": null,
+        "marketPrice": null,
+        "available": false,
+        "reason": "no_region"
+      },
+      {
+        "fuel": "АИ-98",
+        "price": null,
+        "marketPrice": null,
+        "available": false,
+        "reason": "no_reliable_ai98"
+      },
+      {
+        "fuel": "ДТ",
+        "price": null,
+        "marketPrice": null,
+        "available": false,
+        "reason": "no_region"
+      }
+    ],
+    "sources": [
+      {
+        "name": "Ехай",
+        "url": "https://eh-ai.ru/assets/prices.json",
+        "docs": "https://eh-ai.ru/api/",
+        "reachable": true,
+        "sourceUpdatedAt": "2026-07-11T16:20:06.000Z",
+        "reason": "no_region"
+      },
+      {
+        "name": "ГдеТопливо",
+        "url": "https://wherefuel.ru/api/stations?bbox=37.3,55.5,37.9,55.9",
+        "docs": "https://wherefuel.ru/for-business",
+        "reachable": true,
+        "stations": 924,
+        "sourceUpdatedAt": null,
+        "reason": "no_verified_price_fields"
+      }
+    ],
+    "notice": "Цена уточняется: проверенные источники не вернули актуальные региональные котировки"
+  }
+}

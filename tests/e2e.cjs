@@ -23,6 +23,7 @@ async function boot(options={}) {
  page.setDefaultTimeout(8000);
  page.setDefaultNavigationTimeout(Number(process.env.NAVIGATION_TIMEOUT)||45000);
  await page.route('https://telegram.org/js/telegram-web-app.js',route=>route.abort());
+ if(!process.env.BASE_URL)await page.route('**/config.js',route=>route.fulfill({contentType:'text/javascript',body:'window.QF_CONFIG={apiBase:""};'}));
  page.on('pageerror',e=>errors.push(e.message));
  if(options.init)await page.addInitScript(options.init);
  if(options.route)await options.route(page);
@@ -139,7 +140,7 @@ async function book(page,point='martuk'){
   const text=await page.locator('#prices').innerText();
   ok(text.includes('Рыночная цена − 3 ₽/л'),'fixed three ruble launch discount');
   ok(text.includes('АИ-95, АИ-98 и дизелю'),'same rule for all grades');
-  equal(await page.locator('#prices input, #prices select, #prices form').count(),0,'no customer price inputs or discount settings');
+  equal(await page.locator('#prices input, #prices form').count(),0,'no customer price inputs or discount settings');equal(await page.locator('#prices select').count(),1,'only region selection');
   equal(await page.locator('#manualPriceDetails').count(),0,'manual calculator removed');
  });
  const corrupt=async(page)=>{ok(await page.locator('#storageBanner').isVisible(),'corrupt storage warning');await book(page);};

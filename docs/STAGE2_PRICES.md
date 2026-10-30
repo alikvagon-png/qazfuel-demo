@@ -1,0 +1,17 @@
+# Fuel price investigation — 2026-10-30
+
+Actual HTTP requests, not assumed API capabilities. The deployed proxy rechecks sources and caches responses for one hour. Eligible prices require an exact region, actual fuel grade, RUB/litre, finite value, source timestamp at most 24 hours old, no future timestamp and regional sample >=3. QAZFUEL price = verified market quote - **3 RUB/litre**, rounded to kopecks. AI-98 is never inferred from AI-95.
+
+| Source / documentation | Actual request | Result | Decision |
+|---|---|---|---|
+| Ехай, https://eh-ai.ru/api/ | GET https://eh-ai.ru/assets/prices.json | HTTP 200. updated=1783786806, updated_h=11.07.2026; stations=2556; brands contain ai92/ai95/dt/gas. Actual snapshot has no regions and no ai98. Documentation page itself returned 404 directly in this environment; its published indexed documentation describes the JSON. | Connected as a verified-source adapter, **no usable current regional quote**. Old data cannot produce a client price. Source licence requires attribution, cached >=1h. |
+| ГдеТопливо, https://wherefuel.ru/for-business | GET https://wherefuel.ru/api/stations?bbox=37.3,55.5,37.9,55.9 | HTTP 200; ~924 station rows. Verified keys: id, brand, city, address, lat, lng, status, confirmations, updatedAt. No fuel price fields; updatedAt null. No CORS header on observed response. | Public station catalogue is not an eligible price feed. Backend displays diagnostics only. Business use beyond testing requires an agreement according to source docs. No credentials requested or commercial contract entered. |
+| OpenVan, https://openvan.camp/ru/developers | GET https://openvan.camp/api/fuel/prices | HTTP 200, national Russia series, weekly official-source aggregation; generic categories do not establish Moscow/MO AI-95/AI-98 prices. | Not used for regional quotes. Do not relabel a national/generic gasoline value as regional AI-95 or AI-98. |
+| Petrolplus, https://www.petrolplus.ru/fuelindex/gorod-moskva/ | GET public city page | HTTP 200 page, but observed Nuxt fuel index queries carried server error 500; no documented, anonymous regional three-grade API established. | Not used; no guessed endpoint. |
+| CCES, https://cces-group.ru/for-developers/fueling-api | GET developer documentation | HTTP 200. Documents partner-api requests with mandatory X-Api-Key. | Partner integration requires provider-issued credentials. Not an established free anonymous data source. |
+
+Wherefuel's public articles/fuel index may display retail aggregates; that does not prove a freely licensed reliable price API. No HTML aggregate has been represented as an API response. Other commercial offerings were not purchased or signed up for.
+
+Current outcome: **no verified free public API meets all requested criteria (Moscow/MO + AI-95 + AI-98 + diesel + fresh timestamp)**. The release implements actual network adapters, source diagnostics, caching and strict quote rejection, and shows 'Цена уточняется' for missing/stale data. It does not claim successful real market pricing. A provider agreement/key or a different documented, licensed regional feed is still needed. Public HTTP evidence from the deployed proxy is in STAGE2_HTTP_RESULTS.json.
+
+For a new feed: obtain documentation/licence and real sample responses, add an explicit server adapter with precise fuel/region mapping, preserve the source observation timestamp, test live HTTP + stale/partial cases, then enable eligible values. Never install a user-editable discount or derive AI-98.

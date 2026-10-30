@@ -36,3 +36,12 @@ body[data-screen=delivery]:has(#fullTank[aria-pressed=true]) #delivery{padding-t
 @keyframes view-appear{from{opacity:.5}to{opacity:1}}
 body[data-screen=delivery] #delivery input:not([type=range]),body[data-screen=delivery] #delivery textarea,body[data-screen=delivery] #delivery .panel{scroll-margin-top:calc(var(--app-header-height) + var(--delivery-volume-height,170px) + 24px);scroll-margin-bottom:calc(100px + env(safe-area-inset-bottom,0px))}
 .keyboard-open[data-screen=delivery] #delivery input:not([type=range]),.keyboard-open[data-screen=delivery] #delivery textarea{scroll-margin-bottom:24px}
+
+/* Stage 2: preserve visual identity, make marker selection discoverable. */
+.point-card{scroll-margin-top:calc(var(--app-header-height) + 16px)}
+.point-card.point-selected{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),0 12px 32px #e9bd6d0e;background:linear-gradient(125deg,#302c24,#192635)}
+.point-card:focus{outline:2px solid var(--gold-light);outline-offset:4px}
+.server-notice{padding:13px 15px;margin:0 22px 10px;border:1px solid #635539;border-radius:14px;background:#1b252d;font-size:11px;line-height:1.65;color:#d6d0bd}
+.server-notice button{padding:8px 0;background:none;color:var(--gold);font-weight:700;min-height:36px;display:block}
+.price-cards{display:grid;gap:10px}.price-card{border:1px solid var(--line);background:var(--surface);border-radius:17px;padding:16px}.price-card h3{margin:0 0 9px;font-size:17px}.price-card strong{font-size:22px;color:var(--gold-light)}.price-card small{display:block;line-height:1.6;color:var(--muted);margin-top:9px;font-size:11px}.price-source{font-size:11px;line-height:1.7;overflow-wrap:anywhere}.price-market{font-size:12px;color:var(--muted);margin:8px 0}
+.bottom-nav i{font-style:normal;width:auto;min-width:16px;height:16px;line-height:12px;padding:0 3px;font-size:8px;font-weight:700;top:4px;left:calc(50% + 10px);color:var(--bg);border-radius:20px}

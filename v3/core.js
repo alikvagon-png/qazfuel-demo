@@ -16,12 +16,13 @@
   const validDate = value => typeof value === 'string' && Number.isFinite(Date.parse(value));
   function routeUrl(point){return `https://yandex.ru/maps/?rtext=~${point.lat},${point.lng}&rtt=auto&z=14`;}
   function status(order,now=Date.now()){
+    if(order.server){if(['pending','confirmed'].includes(order.status)&&order.kind==='truck'&&now>=Date.parse(order.expiresAt))return 'expired';return order.status;}
     if(order.kind==='legacy')return 'archived';
-    if(order.status==='cancelled')return 'cancelled';
+    if(['cancelled','rejected'].includes(order.status))return order.status;
     if(order.kind==='truck' && now>=Date.parse(order.createdAt)+TTL)return 'expired';
     return order.status==='confirmed'?'confirmed':'pending';
   }
-  function expiration(order){return order.kind==='truck'?new Date(Date.parse(order.createdAt)+TTL).toISOString():null;}
+  function expiration(order){if(order.server)return order.expiresAt||null;return order.kind==='truck'?new Date(Date.parse(order.createdAt)+TTL).toISOString():null;}
   function remaining(order,now=Date.now()){
     const end=expiration(order);if(!end)return '';
     const ms=Math.max(0,Date.parse(end)-now),s=Math.floor(ms/1000);
@@ -54,7 +55,7 @@
     return errors;
   }
   function validateOrder(o){
-    if(!o||typeof o!=='object'||typeof o.id!=='string'||!/^[a-zA-Z0-9_-]{1,100}$/.test(o.id)||!validDate(o.createdAt)||!['pending','confirmed','cancelled'].includes(o.status))return false;
+    if(!o||typeof o!=='object'||typeof o.id!=='string'||!/^[a-zA-Z0-9_-]{1,100}$/.test(o.id)||!validDate(o.createdAt)||!['pending','confirmed','cancelled','rejected'].includes(o.status))return false;
     return o.kind==='legacy' ? typeof o.note==='string' : o.kind==='truck' ? !Object.keys(validateTruck(o)).length : o.kind==='delivery' ? !Object.keys(validateDelivery(o)).length : false;
   }
   const LAUNCH_DISCOUNT_RUB = 3;

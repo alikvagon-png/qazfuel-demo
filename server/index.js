@@ -20,7 +20,7 @@ function createApp({store=null,prices=new Prices(),env=process.env,telegram=null
    if(!store)throw new HttpError(503,'Серверное хранилище ещё не подключено','database_unconfigured');
    if(['POST','PUT','DELETE'].includes(req.method)&&(!origin||!allowed.has(origin)))throw new HttpError(403,'Для записи требуется разрешённый Origin');
    if(url.pathname==='/api/session'&&req.method==='POST'){
-    limit(req,'session',12);const data=await body(req);if(Object.keys(data).some(k=>k!=='initData'))throw new HttpError(422,'Недопустимые данные входа');
+    limit(req,'session',12);const data=await body(req);if(!data||typeof data!=='object'||Array.isArray(data)||Object.keys(data).some(k=>k!=='initData'))throw new HttpError(422,'Недопустимые данные входа');
     const currentMode=await mode();let identity=null;if(data.initData){identity=validateInitData(data.initData,env.BOT_TOKEN);}else if(currentMode==='live')throw new HttpError(401,'Откройте приложение через Telegram');
     return send(201,await store.createSession(identity));
    }
@@ -31,7 +31,7 @@ function createApp({store=null,prices=new Prices(),env=process.env,telegram=null
    if(url.pathname==='/api/orders'&&req.method==='POST'){
     limit(req,'orders',15);const currentMode=await mode();if(currentMode==='live'&&!user.telegram_id)throw new HttpError(401,'Нужен подтверждённый вход Telegram');const r=await store.createOrder(user,await body(req),req.headers['idempotency-key'],currentMode);if(currentMode==='live')void tg.drain().catch(()=>{});return send(r.replayed?200:201,{...r,serverNow:new Date().toISOString(),mode:currentMode});
    }
-   const match=/^\/api\/orders\/([a-f\d-]{36})(?:\/(cancel|simulate))?$/i.exec(url.pathname);
+   const match=/^\/api\/orders\/([a-f\d]{8}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{12})(?:\/(cancel|simulate))?$/i.exec(url.pathname);
    if(match){if(!match[2]&&req.method==='GET')return send(200,{order:await store.get(user,match[1]),serverNow:new Date().toISOString()});
     if(req.method==='POST'&&match[2]){const data=await body(req);let order;if(match[2]==='cancel')order=await store.change(match[1],'cancelled','client',{ownerId:user.id});else{if(await mode()!=='server_test')throw new HttpError(403,'Тестовые переходы отключены');if(!['confirmed','rejected'].includes(data.status))throw new HttpError(422,'Недопустимый статус');order=await store.change(match[1],data.status,'test-client',{ownerId:user.id,testOnly:true});}return send(200,{order,serverNow:new Date().toISOString()});}
    }
